@@ -1,15 +1,60 @@
 package com.talent518.ftp.dao;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.log4j.Logger;
+
+import com.talent518.ftp.protocol.FTP;
+import com.talent518.ftp.protocol.IProtocol;
+
 public class Site {
+	private static final Logger log = Logger.getLogger(Site.class);
+	private static final Map<String, Class<?>> protocols = new HashMap<String, Class<?>>();
+	static {
+		protocols.put("ftp", FTP.class);
+		protocols.put("ftps", FTP.class);
+	}
+
+	public static Set<String> getKeySet() {
+		return protocols.keySet();
+	}
+
 	private String name;
 	private String protocol;
 	private String host;
 	private int port;
+	private String username;
+	private String password;
 	private String remote;
 	private String local;
 	private String remark;
 	private boolean sync;
 	private boolean watch;
+
+	private boolean isImplicit;
+	private String proxyHost;
+	private int proxyPort;
+	private String proxyUser;
+	private String proxyPassword;
+
+	private String secret; // SSL/TLS
+	private String trustmgr; // all/valid/none
+	private String encoding;
+	private boolean hidden;
+
+	private String serverType; // UNIX/VMS/WINDOWS
+	private boolean saveUnparseable;
+	private String defaultDateFormat;
+	private String recentDateFormat;
+
+	private boolean binaryTransfer;
+	private boolean localActive;
+	private boolean useEpsvWithIPv4;
+	private boolean isMlsd;
+	private boolean lenient;
+	private String serverTimeZoneId;
 
 	public Site(String name, String protocol, String host, int port) {
 		super();
@@ -27,6 +72,20 @@ public class Site {
 		this.port = port;
 		this.remote = remote;
 		this.local = local;
+	}
+
+	public IProtocol create() {
+		if (protocols.containsKey(protocol)) {
+			try {
+				return (IProtocol) protocols.get(protocol).getDeclaredConstructor(Site.class).newInstance(this);
+			} catch (Exception e) {
+				log.error("new " + protocol + " failure", e);
+				e.printStackTrace();
+				return null;
+			}
+		} else {
+			return null;
+		}
 	}
 
 	public String getName() {
@@ -63,6 +122,22 @@ public class Site {
 	public Site setPort(int port) {
 		this.port = port;
 		return this;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
 	}
 
 	public String getRemote() {
@@ -108,6 +183,158 @@ public class Site {
 	public Site setWatch(boolean watch) {
 		this.watch = watch;
 		return this;
+	}
+
+	public boolean isImplicit() {
+		return isImplicit;
+	}
+
+	public void setImplicit(boolean isImplicit) {
+		this.isImplicit = isImplicit;
+	}
+
+	public String getProxyHost() {
+		return proxyHost;
+	}
+
+	public void setProxyHost(String proxyHost) {
+		this.proxyHost = proxyHost;
+	}
+
+	public int getProxyPort() {
+		return proxyPort;
+	}
+
+	public void setProxyPort(int proxyPort) {
+		this.proxyPort = proxyPort;
+	}
+
+	public String getProxyUser() {
+		return proxyUser;
+	}
+
+	public void setProxyUser(String proxyUser) {
+		this.proxyUser = proxyUser;
+	}
+
+	public String getProxyPassword() {
+		return proxyPassword;
+	}
+
+	public void setProxyPassword(String proxyPassword) {
+		this.proxyPassword = proxyPassword;
+	}
+
+	public String getSecret() {
+		return secret;
+	}
+
+	public void setSecret(String secret) {
+		this.secret = secret;
+	}
+
+	public String getTrustmgr() {
+		return trustmgr;
+	}
+
+	public void setTrustmgr(String trustmgr) {
+		this.trustmgr = trustmgr;
+	}
+
+	public String getEncoding() {
+		return encoding;
+	}
+
+	public void setEncoding(String encoding) {
+		this.encoding = encoding;
+	}
+
+	public boolean isHidden() {
+		return hidden;
+	}
+
+	public void setHidden(boolean hidden) {
+		this.hidden = hidden;
+	}
+
+	public String getServerType() {
+		return serverType;
+	}
+
+	public void setServerType(String serverType) {
+		this.serverType = serverType;
+	}
+
+	public boolean isSaveUnparseable() {
+		return saveUnparseable;
+	}
+
+	public void setSaveUnparseable(boolean saveUnparseable) {
+		this.saveUnparseable = saveUnparseable;
+	}
+
+	public String getDefaultDateFormat() {
+		return defaultDateFormat;
+	}
+
+	public void setDefaultDateFormat(String defaultDateFormat) {
+		this.defaultDateFormat = defaultDateFormat;
+	}
+
+	public String getRecentDateFormat() {
+		return recentDateFormat;
+	}
+
+	public void setRecentDateFormat(String recentDateFormat) {
+		this.recentDateFormat = recentDateFormat;
+	}
+
+	public boolean isBinaryTransfer() {
+		return binaryTransfer;
+	}
+
+	public void setBinaryTransfer(boolean binaryTransfer) {
+		this.binaryTransfer = binaryTransfer;
+	}
+
+	public boolean isLocalActive() {
+		return localActive;
+	}
+
+	public void setLocalActive(boolean localActive) {
+		this.localActive = localActive;
+	}
+
+	public boolean isUseEpsvWithIPv4() {
+		return useEpsvWithIPv4;
+	}
+
+	public void setUseEpsvWithIPv4(boolean useEpsvWithIPv4) {
+		this.useEpsvWithIPv4 = useEpsvWithIPv4;
+	}
+
+	public boolean isMlsd() {
+		return isMlsd;
+	}
+
+	public void setMlsd(boolean isMlsd) {
+		this.isMlsd = isMlsd;
+	}
+
+	public boolean isLenient() {
+		return lenient;
+	}
+
+	public void setLenient(boolean lenient) {
+		this.lenient = lenient;
+	}
+
+	public String getServerTimeZoneId() {
+		return serverTimeZoneId;
+	}
+
+	public void setServerTimeZoneId(String serverTimeZoneId) {
+		this.serverTimeZoneId = serverTimeZoneId;
 	}
 
 	@Override

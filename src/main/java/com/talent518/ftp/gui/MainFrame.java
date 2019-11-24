@@ -20,8 +20,13 @@ import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.Action;
 import javax.swing.BorderFactory;
@@ -55,6 +60,7 @@ import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Listener;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
+import com.talent518.ftp.protocol.IProtocol;
 import com.talent518.ftp.util.PinyinUtil;
 
 @SuppressWarnings("restriction")
@@ -66,6 +72,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private static ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
 	private static JFrame load = new JFrame();
+	private static ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1000, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
 
 	public static void main(String[] args) {
 		JButton btn = new JButton(Settings.language().getString("loading"), icon);
@@ -128,6 +135,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	FileTable localTable = new FileTable(language.getString("local"), true);
 	ProgressTable progressTable = new ProgressTable();
 	JTextArea logText = new JTextArea();
+	IProtocol protocol = null;
 
 	public MainFrame() {
 		super();
@@ -169,9 +177,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		Menu mSite = new Menu("menu.site", KeyEvent.VK_S);
 		mSite.add(new MenuItem("site.manage", KeyEvent.VK_E, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
-		int i = KeyEvent.VK_A, k = MenuItem.KEY_MANAGE;
+		int i = KeyEvent.VK_A;
 		for (String site : settings.getSiteNames())
-			mSite.add(new MenuItem(site, i, ++k).setKeyStroke("ctrl alt " + (char) i++));
+			mSite.add(new MenuItem(site, i, MenuItem.KEY_SITE).setKeyStroke("ctrl alt " + (char) i++));
 		menuBar.add(mSite);
 
 		Menu mLang = new Menu("menu.lang", KeyEvent.VK_L);
@@ -401,20 +409,32 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			log.debug("Enter local: " + localTable.getAddr());
 
 			localTable.getList().clear();
-			localTable.getList().add(localTable.new Row());
+			if (localTable.getAddr().length() > 1)
+				localTable.getList().add(new FileTable.Row());
 			File path = new File(localTable.getAddr());
 			if (path.isDirectory()) {
 				File[] files = path.listFiles();
 				if (files != null) {
 					Arrays.sort(files, fileSortComparator);
 					for (File f : files) {
-						localTable.getList().add(localTable.new Row(f));
+						localTable.getList().add(new FileTable.Row(f));
 					}
 				}
 			}
 			localTable.fireTableDataChanged();
 		} else {
 			log.debug("Enter remote: " + remoteTable.getAddr());
+
+			pool.execute(() -> {
+				List<FileTable.Row> files = protocol.ls(remoteTable.getAddr());
+				files.sort(rowSortComparator);
+
+				remoteTable.getList().clear();
+				if (!"/".equals(remoteTable.getAddr()))
+					remoteTable.getList().add(new FileTable.Row());
+				remoteTable.getList().addAll(files);
+				remoteTable.fireTableDataChanged();
+			});
 		}
 	}
 
@@ -428,16 +448,26 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (r.isDir()) {
 			if (local) {
 				if (r.isUp()) {
-					localTable.setAddr(localTable.getAddr().substring(0, localTable.getAddr().lastIndexOf(File.separator)));
+					i = localTable.getAddr().lastIndexOf(File.separator);
+					if (i > 0)
+						localTable.setAddr(localTable.getAddr().substring(0, i));
+					else if(File.separator.equals("/"))
+						localTable.setAddr(File.separator);
+					else
+						localTable.setAddr(localTable.getAddr());
 				} else {
-					localTable.setAddr(localTable.getAddr() + File.separator + r.getName());
+					localTable.setAddr(localTable.getAddr().replaceAll("[\\/]+$", "") + File.separator + r.getName());
 				}
 				status.setText("doubleClicked: " + localTable.getAddr());
 			} else {
 				if (r.isUp()) {
-					remoteTable.setAddr(remoteTable.getAddr().substring(0, remoteTable.getAddr().lastIndexOf(File.separator)));
+					i = remoteTable.getAddr().lastIndexOf('/');
+					if (i > 0)
+						remoteTable.setAddr(remoteTable.getAddr().substring(0, i));
+					else
+						remoteTable.setAddr("/");
 				} else {
-					remoteTable.setAddr(remoteTable.getAddr() + File.separator + r.getName());
+					remoteTable.setAddr(remoteTable.getAddr().replaceAll("[\\/]+$", "") + '/' + r.getName());
 				}
 				status.setText("doubleClicked: " + remoteTable.getAddr());
 			}
@@ -452,6 +482,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			if (o1.isDirectory() && !o2.isDirectory())
 				return -1;
 			else if (!o1.isDirectory() && o2.isDirectory())
+				return 1;
+
+			return PinyinUtil.compareTo(o1.getName(), o2.getName());
+		}
+	};
+
+	private Comparator<FileTable.Row> rowSortComparator = new Comparator<FileTable.Row>() {
+		@Override
+		public int compare(FileTable.Row o1, FileTable.Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
 				return 1;
 
 			return PinyinUtil.compareTo(o1.getName(), o2.getName());
@@ -485,16 +527,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public static final int KEY_PREF = 2;
 		public static final int KEY_QUIT = 3;
 
-		public static final int KEY_ENGLISH = 8;
-		public static final int KEY_CHINESE = 9;
+		// menu site
+		public static final int KEY_MANAGE = 10;
+		public static final int KEY_SITE = 11;
+
+		// menu lang
+		public static final int KEY_ENGLISH = 20;
+		public static final int KEY_CHINESE = 21;
 
 		// menu about
-		public static final int KEY_PROTOCOL = 10;
-		public static final int KEY_APP = 11;
-
-		// menu site
-		public static final int KEY_SET = 20;
-		public static final int KEY_MANAGE = 21;
+		public static final int KEY_PROTOCOL = 30;
+		public static final int KEY_APP = 31;
 
 		String resKey, resVal;
 		private int key;
@@ -504,7 +547,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			super();
 
 			resKey = res;
-			if (key > KEY_MANAGE) {
+			if (key == KEY_SITE) {
 				resVal = res;
 			} else {
 				resVal = language.getString(res);
@@ -544,7 +587,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			return this;
 		}
-		
+
 		public MenuItem enabled(boolean b) {
 			setEnabled(b);
 			return this;
@@ -559,8 +602,28 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			log.debug("Performed: resKey = " + resKey + ", resVal = " + resVal + ", mnemonic = " + (char) getMnemonic());
 
 			switch (key) {
+				case KEY_OPEN:
+					break;
+				case KEY_SAVE:
+					break;
+				case KEY_PREF:
+					break;
 				case KEY_QUIT:
 					MainFrame.this.dispose();
+					break;
+				case KEY_MANAGE:
+					break;
+				case KEY_SITE:
+					protocol = settings.getSites().get(resKey).create();
+					pool.execute(() -> {
+						if (protocol.login()) {
+							logText.append(String.format(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
+							remoteTable.setAddr(protocol.pwd());
+						} else {
+							logText.append(String.format(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
+						}
+						logText.append("\n");
+					});
 					break;
 				case KEY_ENGLISH:
 					settings.setLocale(new Locale("en", "US"));
@@ -573,6 +636,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					settings.save();
 					dispose();
 					new MainFrame().setVisible(true);
+					break;
+				case KEY_PROTOCOL:
+					break;
+				case KEY_APP:
 					break;
 			}
 		}

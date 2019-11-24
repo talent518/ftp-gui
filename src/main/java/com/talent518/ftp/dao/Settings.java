@@ -34,7 +34,10 @@ public class Settings {
 			log.error("Load settings failure", t);
 
 			_instance = new Settings();
-			_instance.getSites().put("default", new Site("default", "ftp", "192.168.1.100", 2121));
+			Site s = new Site("default", "ftp", "192.168.1.100", 21);
+			s.setUsername("anonymous");
+			s.setPassword("anonymous");
+			_instance.getSites().put("default", s);
 			_instance.getSiteNames().add("default");
 			_instance.save();
 		} finally {

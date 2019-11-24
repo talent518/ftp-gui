@@ -37,6 +37,8 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
+import org.apache.commons.net.ftp.FTPFile;
+
 import com.talent518.ftp.dao.Settings;
 
 public class FileTable extends JPanel {
@@ -295,7 +297,7 @@ public class FileTable extends JPanel {
 	public void setAddr(String text) {
 		addr.setText(text);
 
-		if (listener != null) {
+		if (text != null && text.length() > 0 && listener != null) {
 			listener.enterAddr(isLocal);
 		}
 	}
@@ -441,7 +443,7 @@ public class FileTable extends JPanel {
 		}
 	}
 
-	public class Row {
+	public static class Row {
 		private String name;
 		private long size;
 		private String type;
@@ -462,8 +464,8 @@ public class FileTable extends JPanel {
 		public Row(File f) {
 			name = f.getName();
 			size = f.length();
-			type = "Unknow";
 
+			type = "Unknow";
 			if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
@@ -473,6 +475,63 @@ public class FileTable extends JPanel {
 
 			mtime = dateFormat.format(f.lastModified());
 		}
+
+		public Row(FTPFile f) {
+			name = f.getName();
+			size = f.getSize();
+			
+			type = "Unknow";
+			if(f.isDirectory()) {
+				type = "DIR";
+				isDir = true;
+			} else if(f.isFile()) {
+				type = "REG";
+			} else if(f.isSymbolicLink()) {
+				type = "LNK";
+			}
+			
+			mtime = dateFormat.format(f.getTimestamp().getTimeInMillis());
+			
+			StringBuilder sb = new StringBuilder();
+	        sb.append(formatType(f.getType()));
+	        sb.append(permissionToString(f, FTPFile.USER_ACCESS));
+	        sb.append(permissionToString(f, FTPFile.GROUP_ACCESS));
+	        sb.append(permissionToString(f, FTPFile.WORLD_ACCESS));
+			perms = sb.toString();
+			uid = f.getUser();
+			gid = f.getGroup();
+		}
+		private char formatType(int _type){
+	        switch(_type) {
+	            case FTPFile.FILE_TYPE:
+	                return '-';
+	            case FTPFile.DIRECTORY_TYPE:
+	                return 'd';
+	            case FTPFile.SYMBOLIC_LINK_TYPE:
+	                return 'l';
+	            default:
+	                return '?';
+	        }
+	    }
+	    private String permissionToString(FTPFile f, int access ){
+	        StringBuilder sb = new StringBuilder();
+	        if (f.hasPermission(access, FTPFile.READ_PERMISSION)) {
+	            sb.append('r');
+	        } else {
+	            sb.append('-');
+	        }
+	        if (f.hasPermission(access, FTPFile.WRITE_PERMISSION)) {
+	            sb.append('w');
+	        } else {
+	            sb.append('-');
+	        }
+	        if (f.hasPermission(access, FTPFile.EXECUTE_PERMISSION)) {
+	            sb.append('x');
+	        } else {
+	            sb.append('-');
+	        }
+	        return sb.toString();
+	    }
 
 		public Object get(int c) {
 			Object o = null;
