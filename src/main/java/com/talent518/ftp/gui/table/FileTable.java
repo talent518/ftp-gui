@@ -52,6 +52,7 @@ public class FileTable extends JPanel {
 	private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	private static final Icon folderIcon = new ImageIcon(FileTable.class.getClass().getResource("/icons/folder.png"));
+	private static final Icon linkIcon = new ImageIcon(FileTable.class.getClass().getResource("/icons/link.png"));
 	private static final Icon fileIcon = new ImageIcon(FileTable.class.getClass().getResource("/icons/file.png"));
 	private static final Map<String, Icon> fileIcons = new HashMap<String, Icon>();
 	static {
@@ -149,7 +150,7 @@ public class FileTable extends JPanel {
 		frame.setVisible(true);
 	}
 
-	private final ResourceBundle lauguage = Settings.language();
+	private final ResourceBundle language = Settings.language();
 
 	private JTable table;
 	private Model model;
@@ -210,6 +211,7 @@ public class FileTable extends JPanel {
 		tableColumn = table.getColumnModel().getColumn(2);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(40);
+		tableColumn.setCellRenderer(new TypeColumn());
 
 		tableColumn = table.getColumnModel().getColumn(3);
 		tableColumn.setMinWidth(126);
@@ -250,7 +252,7 @@ public class FileTable extends JPanel {
 			}
 		});
 
-		JButton btn = new JButton(lauguage.getString("enter"));
+		JButton btn = new JButton(language.getString("enter"));
 		btn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -587,6 +589,8 @@ public class FileTable extends JPanel {
 
 			if (r.isDir()) {
 				icon.setIcon(folderIcon);
+			} else if("LNK".equals(r.getType())) {
+				icon.setIcon(linkIcon);
 			} else {
 				int i = r.getName().lastIndexOf('.');
 				icon.setIcon(fileIcon);
@@ -597,23 +601,28 @@ public class FileTable extends JPanel {
 				}
 			}
 
+			name.setForeground(isSelected ? getTable().getSelectionForeground() : getTable().getForeground());
 			name.setText(r.getName());
 			return panel;
 		}
-
 	}
 
 	public class SizeColumn extends AbstractCellEditor implements TableCellRenderer {
 		private static final long serialVersionUID = 4160637907563033833L;
 
 		private final Color transparent = new Color(0, 0, 0, 0);
+		private final JPanel panel;
 		private final JLabel size;
 
 		public SizeColumn() {
 			super();
 
 			size = new JLabel();
-			size.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+			
+			panel = new JPanel();
+			panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+			panel.setLayout(new BorderLayout(0, 0));
+			panel.add(size, BorderLayout.CENTER);
 		}
 
 		@Override
@@ -628,11 +637,48 @@ public class FileTable extends JPanel {
 
 		@Override
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			size.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
+			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
+			size.setForeground(isSelected ? getTable().getSelectionForeground() : getTable().getForeground());
 			size.setText(FileUtils.formatSize((long) value));
-			return size;
+			return panel;
 		}
-
+	}
+	
+	public class TypeColumn extends AbstractCellEditor implements TableCellRenderer {
+		private static final long serialVersionUID = 4160637907563033833L;
+		
+		private final Color transparent = new Color(0, 0, 0, 0);
+		private final JPanel panel;
+		private final JLabel type;
+		
+		public TypeColumn() {
+			super();
+			
+			type = new JLabel();
+			
+			panel = new JPanel();
+			panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+			panel.setLayout(new BorderLayout(0, 0));
+			panel.add(type, BorderLayout.CENTER);
+		}
+		
+		@Override
+		public boolean shouldSelectCell(EventObject anEvent) {
+			return super.shouldSelectCell(anEvent);
+		}
+		
+		@Override
+		public Object getCellEditorValue() {
+			return type.getText();
+		}
+		
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
+			type.setForeground(isSelected ? getTable().getSelectionForeground() : getTable().getForeground());
+			type.setText(language.getString("type." + value));
+			return panel;
+		}
 	}
 
 	public class Model extends AbstractTableModel {
@@ -641,13 +687,13 @@ public class FileTable extends JPanel {
 		private Class<?>[] cellType = { String.class, Long.class, String.class, String.class, String.class, Integer.class, Integer.class };
 		// @formatter:off
 		private String title[] = {
-			lauguage.getString("fileTable.name"),
-			lauguage.getString("fileTable.size"),
-			lauguage.getString("fileTable.type"),
-			lauguage.getString("fileTable.mtime"),
-			lauguage.getString("fileTable.perms"),
-			lauguage.getString("fileTable.uid"),
-			lauguage.getString("fileTable.gid")
+			language.getString("fileTable.name"),
+			language.getString("fileTable.size"),
+			language.getString("fileTable.type"),
+			language.getString("fileTable.mtime"),
+			language.getString("fileTable.perms"),
+			language.getString("fileTable.uid"),
+			language.getString("fileTable.gid")
 		};
 		// @formatter:on
 		private List<Row> list = new ArrayList<Row>();
@@ -718,7 +764,6 @@ public class FileTable extends JPanel {
 			name = f.getName();
 			size = f.length();
 
-			type = "Unknow";
 			if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
@@ -733,7 +778,7 @@ public class FileTable extends JPanel {
 			name = f.getName();
 			size = f.getSize();
 
-			type = "Unknow";
+			type = "Unknown";
 			if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;

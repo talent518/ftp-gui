@@ -18,7 +18,10 @@ import java.awt.event.WindowListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -68,6 +71,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private static final double DIVIDER = 0.5;
 
 	private static final Logger log = Logger.getLogger(MainFrame.class);
+
+	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
 
 	private static ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
 	private static JFrame load = new JFrame();
@@ -401,13 +406,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void windowDeactivated(WindowEvent e) {
 		log.debug(e);
 	}
+	
+	public void println(String str) {
+		logText.append(timeFormat.format(new Date()) + ' ' + str + '\n');
+	}
+	
+	@SuppressWarnings("resource")
+	public void println(String format, Object... args) {
+		println(new Formatter().format(format, args).toString());
+	}
 
 	@Override
 	public void enterAddr(boolean local) {
 		if (local) {
 			log.debug("Enter local: " + localTable.getAddr() + " begin");
+			println(language.getString("log.localEntering"), localTable.getAddr());
 		} else {
 			log.debug("Enter remote: " + remoteTable.getAddr() + " begin");
+			println(language.getString("log.remoteEntering"), localTable.getAddr());
 		}
 		pool.execute(() -> {
 			if (local) {
@@ -423,16 +439,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 				localTable.setList(list);
 				log.debug("Enter local: " + localTable.getAddr() + " end");
+				println(language.getString("log.localEntered"), localTable.getAddr());
 			} else {
 				remoteTable.setList(protocol.ls(remoteTable.getAddr()));
 				log.debug("Enter remote: " + remoteTable.getAddr() + " end");
+				println(language.getString("log.remoteEntered"), localTable.getAddr());
 			}
 		});
 	}
 
 	@Override
 	public void selectedRow(boolean local, int i, Row r) {
-		status.setText(r.getType() + " " + r.getName() + " " + FileUtils.formatSize(r.getSize()));
+		status.setText(language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
 	}
 
 	@Override
@@ -450,7 +468,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				} else {
 					localTable.setAddr(localTable.getAddr().replaceAll("[\\/]+$", "") + File.separator + r.getName());
 				}
-				status.setText("doubleClicked: " + localTable.getAddr());
 			} else {
 				if (r.isUp()) {
 					i = remoteTable.getAddr().lastIndexOf('/');
@@ -461,7 +478,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				} else {
 					remoteTable.setAddr(remoteTable.getAddr().replaceAll("[\\/]+$", "") + '/' + r.getName());
 				}
-				status.setText("doubleClicked: " + remoteTable.getAddr());
 			}
 		} else {
 			status.setText("doubleClicked: " + r.getName());
@@ -583,9 +599,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 				case KEY_SITE:
 					protocol = settings.getSites().get(resKey).create();
+					println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					pool.execute(() -> {
 						if (protocol.login()) {
-							logText.append(String.format(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
+							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							if (protocol.getSite().getLocal() != null) {
 								localTable.setAddr(protocol.getSite().getLocal());
 							}
@@ -595,9 +612,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								remoteTable.setAddr(protocol.pwd());
 							}
 						} else {
-							logText.append(String.format(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
+							println(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 						}
-						logText.append("\n");
 					});
 					break;
 				case KEY_ENGLISH:
