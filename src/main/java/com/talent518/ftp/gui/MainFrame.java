@@ -18,8 +18,7 @@ import java.awt.event.WindowListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -61,7 +60,7 @@ import com.talent518.ftp.gui.table.FileTable.Listener;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
 import com.talent518.ftp.protocol.IProtocol;
-import com.talent518.ftp.util.PinyinUtil;
+import com.talent518.ftp.util.FileUtils;
 
 @SuppressWarnings("restriction")
 public class MainFrame extends JFrame implements ComponentListener, WindowListener, Listener {
@@ -162,7 +161,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		remoteTable.setListener(this);
 		localTable.setListener(this);
 
-		localTable.setAddr(System.getProperty("user.dir"));
+		localTable.setAddr(System.getProperty("user.home"));
 	}
 
 	private void initMenubar() {
@@ -406,41 +405,34 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	@Override
 	public void enterAddr(boolean local) {
 		if (local) {
-			log.debug("Enter local: " + localTable.getAddr());
-
-			localTable.getList().clear();
-			if (localTable.getAddr().length() > 1)
-				localTable.getList().add(new FileTable.Row());
-			File path = new File(localTable.getAddr());
-			if (path.isDirectory()) {
-				File[] files = path.listFiles();
-				if (files != null) {
-					Arrays.sort(files, fileSortComparator);
-					for (File f : files) {
-						localTable.getList().add(new FileTable.Row(f));
+			log.debug("Enter local: " + localTable.getAddr() + " begin");
+		} else {
+			log.debug("Enter remote: " + remoteTable.getAddr() + " begin");
+		}
+		pool.execute(() -> {
+			if (local) {
+				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
+				File path = new File(localTable.getAddr());
+				if (path.isDirectory()) {
+					File[] files = path.listFiles();
+					if (files != null) {
+						for (File f : files) {
+							list.add(new FileTable.Row(f));
+						}
 					}
 				}
+				localTable.setList(list);
+				log.debug("Enter local: " + localTable.getAddr() + " end");
+			} else {
+				remoteTable.setList(protocol.ls(remoteTable.getAddr()));
+				log.debug("Enter remote: " + remoteTable.getAddr() + " end");
 			}
-			localTable.fireTableDataChanged();
-		} else {
-			log.debug("Enter remote: " + remoteTable.getAddr());
-
-			pool.execute(() -> {
-				List<FileTable.Row> files = protocol.ls(remoteTable.getAddr());
-				files.sort(rowSortComparator);
-
-				remoteTable.getList().clear();
-				if (!"/".equals(remoteTable.getAddr()))
-					remoteTable.getList().add(new FileTable.Row());
-				remoteTable.getList().addAll(files);
-				remoteTable.fireTableDataChanged();
-			});
-		}
+		});
 	}
 
 	@Override
 	public void selectedRow(boolean local, int i, Row r) {
-		status.setText(r.getType() + " " + r.getName() + " " + r.getSize());
+		status.setText(r.getType() + " " + r.getName() + " " + FileUtils.formatSize(r.getSize()));
 	}
 
 	@Override
@@ -451,7 +443,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					i = localTable.getAddr().lastIndexOf(File.separator);
 					if (i > 0)
 						localTable.setAddr(localTable.getAddr().substring(0, i));
-					else if(File.separator.equals("/"))
+					else if (File.separator.equals("/"))
 						localTable.setAddr(File.separator);
 					else
 						localTable.setAddr(localTable.getAddr());
@@ -475,30 +467,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			status.setText("doubleClicked: " + r.getName());
 		}
 	}
-
-	private Comparator<File> fileSortComparator = new Comparator<File>() {
-		@Override
-		public int compare(File o1, File o2) {
-			if (o1.isDirectory() && !o2.isDirectory())
-				return -1;
-			else if (!o1.isDirectory() && o2.isDirectory())
-				return 1;
-
-			return PinyinUtil.compareTo(o1.getName(), o2.getName());
-		}
-	};
-
-	private Comparator<FileTable.Row> rowSortComparator = new Comparator<FileTable.Row>() {
-		@Override
-		public int compare(FileTable.Row o1, FileTable.Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
-
-			return PinyinUtil.compareTo(o1.getName(), o2.getName());
-		}
-	};
 
 	public class Menu extends JMenu {
 		private static final long serialVersionUID = 4386512476542676379L;
@@ -618,7 +586,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					pool.execute(() -> {
 						if (protocol.login()) {
 							logText.append(String.format(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
-							remoteTable.setAddr(protocol.pwd());
+							if (protocol.getSite().getLocal() != null) {
+								localTable.setAddr(protocol.getSite().getLocal());
+							}
+							if (protocol.getSite().getRemote() != null) {
+								remoteTable.setAddr(protocol.getSite().getRemote());
+							} else {
+								remoteTable.setAddr(protocol.pwd());
+							}
 						} else {
 							logText.append(String.format(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername()));
 						}

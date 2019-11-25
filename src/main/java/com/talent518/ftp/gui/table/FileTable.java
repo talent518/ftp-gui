@@ -8,11 +8,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EventObject;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +32,8 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.RowSorter;
+import javax.swing.SortOrder;
 import javax.swing.SwingConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -40,11 +44,13 @@ import javax.swing.table.TableColumn;
 import org.apache.commons.net.ftp.FTPFile;
 
 import com.talent518.ftp.dao.Settings;
+import com.talent518.ftp.util.FileUtils;
+import com.talent518.ftp.util.PinyinUtil;
 
 public class FileTable extends JPanel {
 	private static final long serialVersionUID = -1789896671155598722L;
 	private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-	
+
 	private static final Icon folderIcon = new ImageIcon(FileTable.class.getClass().getResource("/icons/folder.png"));
 	private static final Icon fileIcon = new ImageIcon(FileTable.class.getClass().getResource("/icons/file.png"));
 	private static final Map<String, Icon> fileIcons = new HashMap<String, Icon>();
@@ -148,8 +154,9 @@ public class FileTable extends JPanel {
 	private JTable table;
 	private Model model;
 	private boolean isLocal;
-	private JTextField addr = new JTextField();
+	private JTextField addr;
 	private Listener listener = null;
+	private TableRowSorter rowSorter = null;
 
 	public FileTable(String label) {
 		this(label, false);
@@ -161,7 +168,9 @@ public class FileTable extends JPanel {
 		isLocal = value;
 		model = new Model();
 		table = new JTable(model);
+		rowSorter = new TableRowSorter();
 
+		table.setRowSorter(rowSorter);
 		table.setRowHeight(30);
 		table.setBorder(BorderFactory.createEmptyBorder());
 		table.setColumnSelectionAllowed(false);
@@ -176,23 +185,7 @@ public class FileTable extends JPanel {
 				}
 			}
 		});
-		table.addMouseListener(new MouseListener() {
-			@Override
-			public void mouseReleased(MouseEvent e) {
-			}
-
-			@Override
-			public void mousePressed(MouseEvent e) {
-			}
-
-			@Override
-			public void mouseExited(MouseEvent e) {
-			}
-
-			@Override
-			public void mouseEntered(MouseEvent e) {
-			}
-
+		table.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				if (e.getClickCount() == 2 && listener != null) {
@@ -211,7 +204,8 @@ public class FileTable extends JPanel {
 
 		tableColumn = table.getColumnModel().getColumn(1);
 		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(40);
+		tableColumn.setMaxWidth(60);
+		tableColumn.setCellRenderer(new SizeColumn());
 
 		tableColumn = table.getColumnModel().getColumn(2);
 		tableColumn.setMinWidth(40);
@@ -223,21 +217,22 @@ public class FileTable extends JPanel {
 
 		if (!isLocal) {
 			tableColumn = table.getColumnModel().getColumn(4);
-			tableColumn.setMinWidth(60);
-			tableColumn.setMaxWidth(60);
+			tableColumn.setMinWidth(70);
+			tableColumn.setMaxWidth(70);
 
 			tableColumn = table.getColumnModel().getColumn(5);
-			tableColumn.setMinWidth(60);
-			tableColumn.setMaxWidth(60);
+			tableColumn.setMinWidth(50);
+			tableColumn.setMaxWidth(50);
 
 			tableColumn = table.getColumnModel().getColumn(6);
-			tableColumn.setMinWidth(60);
-			tableColumn.setMaxWidth(60);
+			tableColumn.setMinWidth(50);
+			tableColumn.setMaxWidth(50);
 		}
 
 		setBorder(BorderFactory.createEmptyBorder());
 		setLayout(new BorderLayout(0, 0));
 
+		addr = new JTextField();
 		addr.addKeyListener(new KeyListener() {
 			@Override
 			public void keyTyped(KeyEvent e) {
@@ -306,6 +301,10 @@ public class FileTable extends JPanel {
 		listener = l;
 	}
 
+	public void fireTableDataChanged() {
+		model.fireTableDataChanged();
+	}
+
 	public void clear() {
 		model.getList().clear();
 	}
@@ -314,8 +313,235 @@ public class FileTable extends JPanel {
 		return model.getList();
 	}
 
-	public void fireTableDataChanged() {
-		model.fireTableDataChanged();
+	public void setList(List<Row> list) {
+		getList().clear();
+		if ((isLocal && getAddr().length() > 1) || (!isLocal && !"/".equals(getAddr()))) {
+			getList().add(new Row());
+		}
+		getList().addAll(list);
+		// rowSorter.sort();
+		fireTableDataChanged();
+	}
+
+	private static final Comparator<Row> nameComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return PinyinUtil.compareTo(o1.getName(), o2.getName());
+		}
+	};
+	private static final Comparator<Row> sizeComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return Long.compare(o1.getSize(), o2.getSize());
+		}
+	};
+	private static final Comparator<Row> typeComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return o1.getType().compareTo(o2.getType());
+		}
+	};
+	private static final Comparator<Row> mtimeComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return o1.getMtime().compareTo(o2.getMtime());
+		}
+	};
+	private static final Comparator<Row> permsComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return o1.getPerms().compareTo(o2.getPerms());
+		}
+	};
+	private static final Comparator<Row> uidComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return Integer.compare(o1.getUid(), o2.getUid());
+		}
+	};
+	private static final Comparator<Row> gidComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isDir() && !o2.isDir())
+				return -1;
+			else if (!o1.isDir() && o2.isDir())
+				return 1;
+
+			return Integer.compare(o1.getGid(), o2.getGid());
+		}
+	};
+	@SuppressWarnings("unchecked")
+	private static final Comparator<Row>[] comparators = new Comparator[] { nameComparator, sizeComparator, typeComparator, mtimeComparator, permsComparator, uidComparator, gidComparator };
+
+	public class TableRowSorter extends RowSorter<Model> implements Comparator<Row> {
+		private List<SortKey> sortKeys = Collections.emptyList();
+		private SortKey sortKey;
+		private Comparator<Row> comparator;
+		private int nSort;
+
+		public TableRowSorter() {
+			super();
+
+			toggleSortOrder(0);
+		}
+
+		@Override
+		public Model getModel() {
+			return model;
+		}
+
+		@Override
+		public int compare(Row o1, Row o2) {
+			if (o1.isUp())
+				return -1;
+			if (o2.isUp())
+				return 1;
+			return comparator.compare(o1, o2) * nSort;
+		}
+
+		public void sort() {
+			sortKey = sortKeys.get(0);
+			comparator = comparators[sortKey.getColumn()];
+			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
+			getList().sort(this);
+
+			fireSortOrderChanged();
+		}
+
+		private SortKey toggle(SortKey key) {
+			if (key.getSortOrder() == SortOrder.ASCENDING) {
+				return new SortKey(key.getColumn(), SortOrder.DESCENDING);
+			}
+			return new SortKey(key.getColumn(), SortOrder.ASCENDING);
+		}
+
+		@Override
+		public void toggleSortOrder(int column) {
+			List<SortKey> keys = new ArrayList<SortKey>(getSortKeys());
+			SortKey sortKey;
+			int sortIndex;
+			for (sortIndex = keys.size() - 1; sortIndex >= 0; sortIndex--) {
+				if (keys.get(sortIndex).getColumn() == column) {
+					break;
+				}
+			}
+			if (sortIndex == -1) {
+				// Key doesn't exist
+				sortKey = new SortKey(column, SortOrder.ASCENDING);
+				keys.add(0, sortKey);
+			} else if (sortIndex == 0) {
+				// It's the primary sorting key, toggle it
+				keys.set(0, toggle(keys.get(0)));
+			} else {
+				// It's not the first, but was sorted on, remove old
+				// entry, insert as first with ascending.
+				keys.remove(sortIndex);
+				keys.add(0, new SortKey(column, SortOrder.ASCENDING));
+			}
+			if (keys.size() > 1) {
+				keys = keys.subList(0, 1);
+			}
+			setSortKeys(keys);
+		}
+
+		@Override
+		public int convertRowIndexToModel(int index) {
+			return index;
+		}
+
+		@Override
+		public int convertRowIndexToView(int index) {
+			return index;
+		}
+
+		@Override
+		public void setSortKeys(List<? extends SortKey> keys) {
+			List<SortKey> old = sortKeys;
+			if (keys != null && keys.size() > 0) {
+				int max = model.getColumnCount();
+				for (SortKey key : keys) {
+					if (key == null || key.getColumn() < 0 || key.getColumn() >= max) {
+						throw new IllegalArgumentException("Invalid SortKey");
+					}
+				}
+				sortKeys = Collections.unmodifiableList(new ArrayList<SortKey>(keys));
+			} else {
+				sortKeys = Collections.emptyList();
+			}
+			if (!sortKeys.equals(old)) {
+				sort();
+			}
+		}
+
+		@Override
+		public List<? extends SortKey> getSortKeys() {
+			return sortKeys;
+		}
+
+		@Override
+		public int getViewRowCount() {
+			return model.getRowCount();
+		}
+
+		@Override
+		public int getModelRowCount() {
+			return model.getRowCount();
+		}
+
+		@Override
+		public void modelStructureChanged() {
+		}
+
+		@Override
+		public void allRowsChanged() {
+			sort();
+		}
+
+		@Override
+		public void rowsInserted(int firstRow, int endRow) {
+		}
+
+		@Override
+		public void rowsDeleted(int firstRow, int endRow) {
+		}
+
+		@Override
+		public void rowsUpdated(int firstRow, int endRow) {
+		}
+
+		@Override
+		public void rowsUpdated(int firstRow, int endRow, int column) {
+		}
 	}
 
 	public interface Listener {
@@ -349,11 +575,6 @@ public class FileTable extends JPanel {
 		}
 
 		@Override
-		public boolean shouldSelectCell(EventObject anEvent) {
-			return super.shouldSelectCell(anEvent);
-		}
-
-		@Override
 		public Object getCellEditorValue() {
 			return name.getText();
 		}
@@ -382,10 +603,42 @@ public class FileTable extends JPanel {
 
 	}
 
+	public class SizeColumn extends AbstractCellEditor implements TableCellRenderer {
+		private static final long serialVersionUID = 4160637907563033833L;
+
+		private final Color transparent = new Color(0, 0, 0, 0);
+		private final JLabel size;
+
+		public SizeColumn() {
+			super();
+
+			size = new JLabel();
+			size.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+		}
+
+		@Override
+		public boolean shouldSelectCell(EventObject anEvent) {
+			return super.shouldSelectCell(anEvent);
+		}
+
+		@Override
+		public Object getCellEditorValue() {
+			return size.getText();
+		}
+
+		@Override
+		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+			size.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
+			size.setText(FileUtils.formatSize((long) value));
+			return size;
+		}
+
+	}
+
 	public class Model extends AbstractTableModel {
 		private static final long serialVersionUID = -1994280421860518219L;
 
-		private Class<?>[] cellType = { String.class, Long.class, String.class, String.class, String.class, String.class, String.class };
+		private Class<?>[] cellType = { String.class, Long.class, String.class, String.class, String.class, Integer.class, Integer.class };
 		// @formatter:off
 		private String title[] = {
 			lauguage.getString("fileTable.name"),
@@ -447,10 +700,10 @@ public class FileTable extends JPanel {
 		private String name;
 		private long size;
 		private String type;
-		private String mtime;
-		private String perms;
-		private String uid;
-		private String gid;
+		private String mtime = "";
+		private String perms = "----------";
+		private int uid;
+		private int gid;
 		private boolean isUp;
 		private boolean isDir;
 
@@ -479,59 +732,61 @@ public class FileTable extends JPanel {
 		public Row(FTPFile f) {
 			name = f.getName();
 			size = f.getSize();
-			
+
 			type = "Unknow";
-			if(f.isDirectory()) {
+			if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
-			} else if(f.isFile()) {
+			} else if (f.isFile()) {
 				type = "REG";
-			} else if(f.isSymbolicLink()) {
+			} else if (f.isSymbolicLink()) {
 				type = "LNK";
 			}
-			
+
 			mtime = dateFormat.format(f.getTimestamp().getTimeInMillis());
-			
+
 			StringBuilder sb = new StringBuilder();
-	        sb.append(formatType(f.getType()));
-	        sb.append(permissionToString(f, FTPFile.USER_ACCESS));
-	        sb.append(permissionToString(f, FTPFile.GROUP_ACCESS));
-	        sb.append(permissionToString(f, FTPFile.WORLD_ACCESS));
+			sb.append(formatType(f.getType()));
+			sb.append(permissionToString(f, FTPFile.USER_ACCESS));
+			sb.append(permissionToString(f, FTPFile.GROUP_ACCESS));
+			sb.append(permissionToString(f, FTPFile.WORLD_ACCESS));
 			perms = sb.toString();
-			uid = f.getUser();
-			gid = f.getGroup();
+			uid = new Integer(f.getUser()).intValue();
+			gid = new Integer(f.getGroup()).intValue();
 		}
-		private char formatType(int _type){
-	        switch(_type) {
-	            case FTPFile.FILE_TYPE:
-	                return '-';
-	            case FTPFile.DIRECTORY_TYPE:
-	                return 'd';
-	            case FTPFile.SYMBOLIC_LINK_TYPE:
-	                return 'l';
-	            default:
-	                return '?';
-	        }
-	    }
-	    private String permissionToString(FTPFile f, int access ){
-	        StringBuilder sb = new StringBuilder();
-	        if (f.hasPermission(access, FTPFile.READ_PERMISSION)) {
-	            sb.append('r');
-	        } else {
-	            sb.append('-');
-	        }
-	        if (f.hasPermission(access, FTPFile.WRITE_PERMISSION)) {
-	            sb.append('w');
-	        } else {
-	            sb.append('-');
-	        }
-	        if (f.hasPermission(access, FTPFile.EXECUTE_PERMISSION)) {
-	            sb.append('x');
-	        } else {
-	            sb.append('-');
-	        }
-	        return sb.toString();
-	    }
+
+		private char formatType(int _type) {
+			switch (_type) {
+				case FTPFile.FILE_TYPE:
+					return '-';
+				case FTPFile.DIRECTORY_TYPE:
+					return 'd';
+				case FTPFile.SYMBOLIC_LINK_TYPE:
+					return 'l';
+				default:
+					return '?';
+			}
+		}
+
+		private String permissionToString(FTPFile f, int access) {
+			StringBuilder sb = new StringBuilder();
+			if (f.hasPermission(access, FTPFile.READ_PERMISSION)) {
+				sb.append('r');
+			} else {
+				sb.append('-');
+			}
+			if (f.hasPermission(access, FTPFile.WRITE_PERMISSION)) {
+				sb.append('w');
+			} else {
+				sb.append('-');
+			}
+			if (f.hasPermission(access, FTPFile.EXECUTE_PERMISSION)) {
+				sb.append('x');
+			} else {
+				sb.append('-');
+			}
+			return sb.toString();
+		}
 
 		public Object get(int c) {
 			Object o = null;
@@ -579,10 +834,10 @@ public class FileTable extends JPanel {
 					perms = (String) value;
 					break;
 				case 5:
-					uid = (String) value;
+					uid = (int) value;
 					break;
 				case 6:
-					gid = (String) value;
+					gid = (int) value;
 					break;
 			}
 		}
@@ -635,19 +890,19 @@ public class FileTable extends JPanel {
 			this.perms = perms;
 		}
 
-		public String getUid() {
+		public int getUid() {
 			return uid;
 		}
 
-		public void setUid(String uid) {
+		public void setUid(int uid) {
 			this.uid = uid;
 		}
 
-		public String getGid() {
+		public int getGid() {
 			return gid;
 		}
 
-		public void setGid(String gid) {
+		public void setGid(int gid) {
 			this.gid = gid;
 		}
 
