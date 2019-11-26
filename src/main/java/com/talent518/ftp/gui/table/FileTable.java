@@ -27,12 +27,12 @@ import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.RowSorter;
 import javax.swing.SortOrder;
 import javax.swing.SwingConstants;
@@ -142,15 +142,6 @@ public class FileTable extends JPanel {
 		fileIcons.put("jar", new ImageIcon(FileTable.class.getResource("/icons/jar.png")));
 	}
 
-	public static void main(String[] args) {
-		JFrame frame = new JFrame();
-		frame.setSize(600, 400);
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setTitle("Custom JTable");
-		frame.setContentPane(new FileTable("Test:"));
-		frame.setVisible(true);
-	}
-
 	private final ResourceBundle language = Settings.language();
 
 	private JTable table;
@@ -176,6 +167,7 @@ public class FileTable extends JPanel {
 		table.setRowHeight(30);
 		table.setBorder(BorderFactory.createEmptyBorder());
 		table.setColumnSelectionAllowed(false);
+		table.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
@@ -190,43 +182,54 @@ public class FileTable extends JPanel {
 		table.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				if (e.getClickCount() == 2 && listener != null) {
+				if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1 && listener != null) {
 					try {
 						listener.doubleClicked(isLocal, table.getSelectedRow(), getList().get(table.getSelectedRow()));
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
+				} else if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
+					int i = table.rowAtPoint(e.getPoint());
+					table.addRowSelectionInterval(i, i);
+					listener.rightClicked(isLocal, i, i >= 0 && i < getList().size() ? getList().get(table.getSelectedRow()) : null, e);
 				}
 			}
 		});
 
 		TableColumn tableColumn;
 
+		// name column(0)
 		tableColumn = table.getColumnModel().getColumn(0);
 		tableColumn.setCellRenderer(new NameColumn());
 
+		// size column(1)
 		tableColumn = table.getColumnModel().getColumn(1);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(60);
 		tableColumn.setCellRenderer(new SizeColumn());
 
+		// type column(2)
 		tableColumn = table.getColumnModel().getColumn(2);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("type.size")));
 		tableColumn.setCellRenderer(new TypeColumn());
 
+		// mtime column(3)
 		tableColumn = table.getColumnModel().getColumn(3);
 		tableColumn.setMinWidth(126);
 		tableColumn.setMaxWidth(126);
 
 		if (!isLocal) {
+			// perms column(4)
 			tableColumn = table.getColumnModel().getColumn(4);
 			tableColumn.setMinWidth(70);
 			tableColumn.setMaxWidth(Integer.valueOf(language.getString("perms.size")));
 
+			// uid column(5)
 			tableColumn = table.getColumnModel().getColumn(5);
 			tableColumn.setMinWidth(50);
 			tableColumn.setMaxWidth(50);
 
+			// gid column(6)
 			tableColumn = table.getColumnModel().getColumn(6);
 			tableColumn.setMinWidth(50);
 			tableColumn.setMaxWidth(50);
@@ -299,7 +302,7 @@ public class FileTable extends JPanel {
 			addr.setText(text);
 		}
 	}
-	
+
 	public void setAddrText(String text) {
 		addr.setText(text);
 	}
@@ -327,7 +330,6 @@ public class FileTable extends JPanel {
 				getList().add(new Row());
 			}
 			getList().addAll(list);
-			// rowSorter.sort();
 			fireTableDataChanged();
 		});
 	}
@@ -555,6 +557,8 @@ public class FileTable extends JPanel {
 
 	public interface Listener {
 		public void enterAddr(boolean local, String addr);
+
+		public void rightClicked(boolean isLocal, int i, Row r, MouseEvent e);
 
 		public void selectedRow(boolean local, int i, Row r);
 

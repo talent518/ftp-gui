@@ -163,7 +163,7 @@ public class FTP extends IProtocol {
 			return false;
 		}
 	}
-	
+
 	public String pwd() {
 		try {
 			return ftp.printWorkingDirectory();
@@ -184,14 +184,15 @@ public class FTP extends IProtocol {
 
 			if (files != null) {
 				for (FTPFile f : files) {
-					rows.add(new FileTable.Row(f));
+					if (!".".equals(f.getName()) && !"..".equals(f.getName()))
+						rows.add(new FileTable.Row(f));
 				}
 			}
 
 			return true;
 		} catch (IOException e) {
 			log.error("ls failure", e);
-			error = e.getLocalizedMessage();
+			error = e.getMessage();
 			return false;
 		}
 	}
@@ -241,24 +242,24 @@ public class FTP extends IProtocol {
 
 		return false;
 	}
-	
+
 	public boolean logout() {
 		try {
 			ftp.noop();
-			
+
 			boolean ret = ftp.logout();
-			
+
 			ftp.disconnect();
-			
+
 			return ret;
-		} catch(IOException e) {
+		} catch (IOException e) {
 			log.error("logout failure", e);
 		}
 		return false;
 	}
-	
+
 	public void dispose() {
-		if(ftp != null && ftp.isConnected()) {
+		if (ftp != null && ftp.isConnected()) {
 			logout();
 		}
 	}

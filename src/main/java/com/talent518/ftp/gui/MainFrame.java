@@ -43,6 +43,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -79,7 +80,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
 	private static JFrame load = new JFrame();
-	public static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 8, 1000, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
+	private static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
 
 	public static void main(String[] args) {
 		JButton btn = new JButton(Settings.language().getString("loading"), icon);
@@ -135,6 +136,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	JMenuBar menuBar = new JMenuBar();
 	JToolBar toolBar = new JToolBar();
 	MenuItem favoriteMenu;
+	PopupMenu localMenu = new PopupMenu();
+	PopupMenu remoteMenu = new PopupMenu();
 
 	JSplitPane lrSplit = new JSplitPane();
 	JSplitPane lvSplit = new JSplitPane();
@@ -164,6 +167,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		initToolbar();
 		initSplit();
 		initStatusBar();
+		initPopupMenu();
 
 		addComponentListener(this);
 		addWindowListener(this);
@@ -379,6 +383,25 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		content.add(status, BorderLayout.SOUTH);
 	}
 
+	private MenuItem localUploadMenu;
+	private MenuItem localQueueMenu;
+
+	private void initPopupMenu() {
+		localUploadMenu = new MenuItem("local.upload", KeyEvent.VK_U, MenuItem.KEY_UPLOAD);
+		localQueueMenu = new MenuItem("local.queue", KeyEvent.VK_Q, MenuItem.KEY_LQUEUE);
+		localMenu.add(localUploadMenu);
+		localMenu.add(localQueueMenu);
+		localMenu.addSeparator();
+		localMenu.add(new MenuItem("local.delete", KeyEvent.VK_D, MenuItem.KEY_LDELETE));
+		localMenu.add(new MenuItem("local.mkdir", KeyEvent.VK_M, MenuItem.KEY_LMKDIR));
+
+		remoteMenu.add(new MenuItem("remote.download", KeyEvent.VK_D, MenuItem.KEY_DOWNLOAD));
+		remoteMenu.add(new MenuItem("remote.queue", KeyEvent.VK_Q, MenuItem.KEY_RQUEUE));
+		remoteMenu.addSeparator();
+		remoteMenu.add(new MenuItem("remote.delete", KeyEvent.VK_D, MenuItem.KEY_RDELETE));
+		remoteMenu.add(new MenuItem("remote.mkdir", KeyEvent.VK_M, MenuItem.KEY_RMKDIR));
+	}
+
 	@Override
 	public void componentResized(ComponentEvent e) {
 		lrSplit.setDividerLocation(DIVIDER);
@@ -454,6 +477,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			log.debug("Enter local: " + addr + " begin");
 			println(language.getString("log.localEntering"), addr);
 		} else {
+			if (protocol == null)
+				return;
+
 			log.debug("Enter remote: " + addr + " begin");
 			println(language.getString("log.remoteEntering"), addr);
 		}
@@ -498,6 +524,22 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 			}
 		});
+	}
+
+	@Override
+	public void rightClicked(boolean isLocal, int i, Row r, MouseEvent e) {
+		if (r == null)
+			return;
+
+		if (isLocal) {
+			localUploadMenu.setEnabled(protocol != null);
+			localQueueMenu.setEnabled(protocol != null);
+			localMenu.setRow(r);
+			localMenu.show(e.getComponent(), e.getX(), e.getY());
+		} else {
+			remoteMenu.setRow(r);
+			remoteMenu.show(e.getComponent(), e.getX(), e.getY());
+		}
 	}
 
 	@Override
@@ -554,6 +596,28 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 	}
 
+	public class PopupMenu extends JPopupMenu {
+		private static final long serialVersionUID = -6054322075287475764L;
+
+		private Row row;
+
+		public PopupMenu() {
+			super();
+		}
+
+		public Row getRow() {
+			return row;
+		}
+
+		public void setRow(Row r) {
+			row = r;
+		}
+
+		public JMenuItem add(MenuItem menuItem) {
+			return super.add((JMenuItem) menuItem);
+		}
+	}
+
 	public class MenuItem extends JMenuItem implements Action {
 		private static final long serialVersionUID = 6896925674527585756L;
 
@@ -575,6 +639,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		// menu about
 		public static final int KEY_PROTOCOL = 30;
 		public static final int KEY_APP = 31;
+
+		// popup local menu
+		public static final int KEY_UPLOAD = 40;
+		public static final int KEY_LQUEUE = 41;
+		public static final int KEY_LDELETE = 42;
+		public static final int KEY_LMKDIR = 43;
+
+		// popup remote menu
+		public static final int KEY_DOWNLOAD = 50;
+		public static final int KEY_RQUEUE = 51;
+		public static final int KEY_RDELETE = 52;
+		public static final int KEY_RMKDIR = 53;
 
 		String resKey, resVal;
 		private int key;
@@ -707,6 +783,25 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 				case KEY_APP:
 					break;
+
+				case KEY_UPLOAD:
+					addProgress();
+					break;
+				case KEY_LQUEUE:
+					addProgress();
+					break;
+				case KEY_LDELETE:
+					break;
+				case KEY_LMKDIR:
+					break;
+				case KEY_DOWNLOAD:
+					break;
+				case KEY_RQUEUE:
+					break;
+				case KEY_RDELETE:
+					break;
+				case KEY_RMKDIR:
+					break;
 			}
 		}
 
@@ -719,6 +814,20 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		@Override
 		public void putValue(String key, Object value) {
 			log.debug("putValue: key = " + key + ", value = " + value);
+		}
+		
+		private void addProgress() {
+			Row r = localMenu.getRow();
+			ProgressTable.Row progress = new ProgressTable.Row();
+			progress.setSite(protocol.getSite().getName());
+			progress.setLocal(localTable.getAddr() + File.separator + r.getName());
+			progress.setDirection(true);
+			progress.setRemote(remoteTable.getAddr() + '/' + r.getName());
+			progress.setType(r.getType());
+			progress.setSize(r.getSize());
+			progress.setStatus(ProgressTable.Row.STATUS_READY);
+			progressTable.getList().add(progress);
+			progressTable.fireTableDataChanged();
 		}
 	}
 
