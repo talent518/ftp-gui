@@ -244,7 +244,7 @@ public class FileTable extends JPanel {
 			@Override
 			public void keyReleased(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_ENTER && listener != null) {
-					listener.enterAddr(isLocal);
+					listener.enterAddr(isLocal, addr.getText());
 				}
 			}
 
@@ -258,7 +258,7 @@ public class FileTable extends JPanel {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (listener != null) {
-					listener.enterAddr(isLocal);
+					listener.enterAddr(isLocal, addr.getText());
 				}
 			}
 		});
@@ -293,11 +293,15 @@ public class FileTable extends JPanel {
 	}
 
 	public void setAddr(String text) {
-		addr.setText(text);
-
-		if (text != null && text.length() > 0 && listener != null) {
-			listener.enterAddr(isLocal);
+		if (listener != null) {
+			listener.enterAddr(isLocal, text);
+		} else {
+			addr.setText(text);
 		}
+	}
+	
+	public void setAddrText(String text) {
+		addr.setText(text);
 	}
 
 	public void setListener(Listener l) {
@@ -550,7 +554,7 @@ public class FileTable extends JPanel {
 	}
 
 	public interface Listener {
-		public void enterAddr(boolean local);
+		public void enterAddr(boolean local, String addr);
 
 		public void selectedRow(boolean local, int i, Row r);
 

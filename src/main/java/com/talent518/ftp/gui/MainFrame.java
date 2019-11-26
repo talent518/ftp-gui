@@ -263,20 +263,22 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		JScrollPane scrollPane = new JScrollPane(logText, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		JScrollBar scrollBar = scrollPane.getVerticalScrollBar();
 
+		logText.setToolTipText(language.getString("tip.logText"));
 		logText.addKeyListener(new KeyListener() {
 			@Override
 			public void keyTyped(KeyEvent e) {
-				logText.append(e.paramString() + "\n");
 			}
 
 			@Override
 			public void keyReleased(KeyEvent e) {
-				logText.append(e.paramString() + "\n");
+				if (e.getKeyCode() == KeyEvent.VK_ENTER)
+					println("");
+				else if (e.getKeyCode() == KeyEvent.VK_DELETE)
+					logText.setText("");
 			}
 
 			@Override
 			public void keyPressed(KeyEvent e) {
-				logText.append(e.paramString() + "\n");
 			}
 		});
 		logText.getDocument().addDocumentListener(new DocumentListener() {
@@ -447,18 +449,19 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	@Override
-	public void enterAddr(boolean local) {
+	public void enterAddr(boolean local, String addr) {
 		if (local) {
-			log.debug("Enter local: " + localTable.getAddr() + " begin");
-			println(language.getString("log.localEntering"), localTable.getAddr());
+			log.debug("Enter local: " + addr + " begin");
+			println(language.getString("log.localEntering"), addr);
 		} else {
-			log.debug("Enter remote: " + remoteTable.getAddr() + " begin");
-			println(language.getString("log.remoteEntering"), remoteTable.getAddr());
+			log.debug("Enter remote: " + addr + " begin");
+			println(language.getString("log.remoteEntering"), addr);
 		}
+		String old = local ? localTable.getAddr() : remoteTable.getAddr();
 		pool.execute(() -> {
 			if (local) {
 				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
-				File path = new File(localTable.getAddr());
+				File path = new File(addr);
 				if (path.isDirectory()) {
 					File[] files = path.listFiles();
 					if (files != null) {
@@ -466,14 +469,33 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							list.add(new FileTable.Row(f));
 						}
 					}
+					if (localTable.getAddr().equals(old)) {
+						localTable.setAddrText(addr);
+						localTable.setList(list);
+						log.debug("Enter local: " + addr + " end");
+						println(language.getString("log.localEntered"), addr);
+					} else {
+						println("-----");
+					}
+				} else {
+					log.debug("Enter local: " + addr + " ERROR: not directory");
+					println(language.getString("log.localEntererr"), addr);
 				}
-				localTable.setList(list);
-				log.debug("Enter local: " + localTable.getAddr() + " end");
-				println(language.getString("log.localEntered"), localTable.getAddr());
 			} else {
-				remoteTable.setList(protocol.ls(remoteTable.getAddr()));
-				log.debug("Enter remote: " + remoteTable.getAddr() + " end");
-				println(language.getString("log.remoteEntered"), remoteTable.getAddr());
+				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
+				if (protocol.ls(addr, list)) {
+					if (remoteTable.getAddr().equals(old)) {
+						remoteTable.setAddrText(addr);
+						remoteTable.setList(list);
+						log.debug("Enter remote: " + addr + " end");
+						println(language.getString("log.remoteEntered"), addr);
+					} else {
+						println("-----");
+					}
+				} else {
+					log.debug("Enter remote: " + addr + " , ERROR: " + protocol.getError());
+					println(language.getString("log.remoteEntererr"), addr, protocol.getError());
+				}
 			}
 		});
 	}
@@ -632,23 +654,40 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new FavoriteDialog(MainFrame.this, true).setVisible(true);
 					break;
 				case KEY_SITE:
-					protocol = settings.getSites().get(resKey).create();
-					println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					pool.execute(() -> {
+						boolean exists = protocol != null && resKey.equals(protocol.getSite().getName());
+						if (exists) {
+							println(language.getString("log.disconnecting"), resKey);
+							println(language.getString(protocol.logout() ? "log.disconnected" : "log.disconnecterr"), resKey);
+						} else {
+							if (protocol != null) {
+								println(language.getString("log.disconnecting"), protocol.getSite().getName());
+								protocol.logout();
+								println(language.getString(protocol.logout() ? "log.disconnected" : "log.disconnecterr"), protocol.getSite().getName());
+							}
+							protocol = settings.getSites().get(resKey).create();
+						}
+						println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							favoriteMenu.setEnabled(true);
 							initToolbar(protocol.getSite().getFavorites());
-							if (protocol.getSite().getLocal() != null) {
-								localTable.setAddr(protocol.getSite().getLocal());
-							}
-							if (protocol.getSite().getRemote() != null) {
-								remoteTable.setAddr(protocol.getSite().getRemote());
+							if (exists) {
+								enterAddr(false, getRemoteAddr());
 							} else {
-								remoteTable.setAddr(protocol.pwd());
+								if (protocol.getSite().getLocal() != null) {
+									localTable.setAddr(protocol.getSite().getLocal());
+								}
+								if (protocol.getSite().getRemote() != null) {
+									remoteTable.setAddr(protocol.getSite().getRemote());
+								} else {
+									remoteTable.setAddr(protocol.pwd());
+								}
 							}
 						} else {
 							println(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							protocol.logout();
+							protocol = null;
 						}
 					});
 					break;

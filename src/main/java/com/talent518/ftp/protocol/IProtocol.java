@@ -10,6 +10,7 @@ import com.talent518.ftp.gui.table.FileTable;
 
 public abstract class IProtocol {
 	protected Site site;
+	protected String error;
 
 	public IProtocol(Site s) {
 		site = s;
@@ -17,6 +18,10 @@ public abstract class IProtocol {
 
 	public Site getSite() {
 		return site;
+	}
+	
+	public String getError() {
+		return error;
 	}
 
 	protected String getLogFile() {
@@ -35,7 +40,7 @@ public abstract class IProtocol {
 
 	public abstract String pwd();
 
-	public abstract List<FileTable.Row> ls(String remote);
+	public abstract boolean ls(String remote, List<FileTable.Row> files);
 
 	public abstract boolean storeFile(String remote, String local);
 

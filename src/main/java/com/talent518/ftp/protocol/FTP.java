@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.net.PrintCommandListener;
@@ -174,7 +173,7 @@ public class FTP extends IProtocol {
 		}
 	}
 
-	public List<FileTable.Row> ls(String remote) {
+	public boolean ls(String remote, List<FileTable.Row> rows) {
 		try {
 			FTPFile[] files;
 			if (site.isMlsd()) {
@@ -183,18 +182,17 @@ public class FTP extends IProtocol {
 				files = ftp.listFiles(remote);
 			}
 
-			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
-
 			if (files != null) {
 				for (FTPFile f : files) {
 					rows.add(new FileTable.Row(f));
 				}
 			}
 
-			return rows;
+			return true;
 		} catch (IOException e) {
 			log.error("ls failure", e);
-			return new ArrayList<FileTable.Row>();
+			error = e.getLocalizedMessage();
+			return false;
 		}
 	}
 
