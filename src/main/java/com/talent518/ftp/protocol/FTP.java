@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,7 +71,7 @@ public class FTP extends IProtocol {
 		ftp.setListHiddenFiles(s.isHidden());
 
 		// suppress login details
-		ftp.addProtocolCommandListener(new PrintCommandListener(new PrintWriter(System.out), true));
+		ftp.addProtocolCommandListener(new PrintCommandListener(getPrintWriter(), true));
 
 		final FTPClientConfig config;
 		if (s.getServerType() != null) {

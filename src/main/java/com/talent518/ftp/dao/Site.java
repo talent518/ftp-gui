@@ -56,6 +56,8 @@ public class Site {
 	private boolean lenient;
 	private String serverTimeZoneId;
 
+	private Map<String, Favorite> favorites;
+
 	public Site(String name, String protocol, String host, int port) {
 		super();
 		this.name = name;
@@ -337,8 +339,64 @@ public class Site {
 		this.serverTimeZoneId = serverTimeZoneId;
 	}
 
+	public Map<String, Favorite> getFavorites() {
+		if(favorites == null) {
+			favorites = new HashMap<String, Favorite>();
+		}
+		
+		return favorites;
+	}
+
+	public void setFavorites(Map<String, Favorite> favorites) {
+		if (favorites != null) {
+			this.favorites = favorites;
+		}
+	}
+
 	@Override
 	public String toString() {
 		return Settings.gson().toJson(this);
+	}
+
+	public static class Favorite {
+		private String name;
+		private String local;
+		private String remote;
+
+		public Favorite(String name, String local, String remote) {
+			super();
+			this.name = name;
+			this.local = local;
+			this.remote = remote;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		public String getLocal() {
+			return local;
+		}
+
+		public void setLocal(String local) {
+			this.local = local;
+		}
+
+		public String getRemote() {
+			return remote;
+		}
+
+		public void setRemote(String remote) {
+			this.remote = remote;
+		}
+
+		@Override
+		public String toString() {
+			return Settings.gson().toJson(this);
+		}
 	}
 }

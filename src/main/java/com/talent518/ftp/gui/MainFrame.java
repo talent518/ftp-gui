@@ -13,6 +13,8 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.beans.PropertyChangeEvent;
@@ -24,6 +26,7 @@ import java.util.Date;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
@@ -58,6 +61,8 @@ import org.apache.log4j.Logger;
 
 import com.sun.awt.AWTUtilities;
 import com.talent518.ftp.dao.Settings;
+import com.talent518.ftp.dao.Site.Favorite;
+import com.talent518.ftp.gui.dialog.FavoriteDialog;
 import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Listener;
 import com.talent518.ftp.gui.table.FileTable.Row;
@@ -71,12 +76,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private static final double DIVIDER = 0.5;
 
 	private static final Logger log = Logger.getLogger(MainFrame.class);
-
-	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
-
-	private static ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
+	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+	public static final ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
 	private static JFrame load = new JFrame();
-	private static ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1000, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
+	public static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 8, 1000, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
 
 	public static void main(String[] args) {
 		JButton btn = new JButton(Settings.language().getString("loading"), icon);
@@ -130,6 +133,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	JPanel content = new JPanel(true);
 
 	JMenuBar menuBar = new JMenuBar();
+	JToolBar toolBar = new JToolBar();
+	MenuItem favoriteMenu;
 
 	JSplitPane lrSplit = new JSplitPane();
 	JSplitPane lvSplit = new JSplitPane();
@@ -169,6 +174,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		localTable.setAddr(System.getProperty("user.home"));
 	}
 
+	public IProtocol getProtocol() {
+		return protocol;
+	}
+
+	public String getRemoteAddr() {
+		return remoteTable.getAddr();
+	}
+
+	public String getLocalAddr() {
+		return localTable.getAddr();
+	}
+
 	private void initMenubar() {
 		Menu mFile = new Menu("menu.file", KeyEvent.VK_F);
 		mFile.add(new MenuItem("file.open", KeyEvent.VK_O, MenuItem.KEY_OPEN).setKeyStroke("ctrl O"));
@@ -179,8 +196,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		mFile.add(new MenuItem("file.quit", KeyEvent.VK_Q, MenuItem.KEY_QUIT).setKeyStroke("ctrl Q"));
 		menuBar.add(mFile);
 
+		favoriteMenu = new MenuItem("site.favorite", KeyEvent.VK_F, MenuItem.KEY_FAVORITE).setKeyStroke("ctrl D");
+		favoriteMenu.setEnabled(false);
+
 		Menu mSite = new Menu("menu.site", KeyEvent.VK_S);
-		mSite.add(new MenuItem("site.manage", KeyEvent.VK_E, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
+		mSite.add(new MenuItem("site.manage", KeyEvent.VK_M, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
+		mSite.add(favoriteMenu);
+		mSite.addSeparator();
 		int i = KeyEvent.VK_A;
 		for (String site : settings.getSiteNames())
 			mSite.add(new MenuItem(site, i, MenuItem.KEY_SITE).setKeyStroke("ctrl alt " + (char) i++));
@@ -200,7 +222,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	private void initToolbar() {
-		JToolBar toolBar = new JToolBar();
 		toolBar.setBorder(new LineBorder(new Color(0x999999), 1) {
 			private static final long serialVersionUID = 8347901766288376013L;
 
@@ -223,12 +244,19 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				g2.setColor(oldColor);
 			}
 		});
-		toolBar.add(new JButton("Tool1"));
-		toolBar.add(new JButton("Tool2"));
-		toolBar.add(new JButton("Tool3"));
-		toolBar.add(new JButton("Tool4"));
+		toolBar.setVisible(false);
 
 		content.add(toolBar, BorderLayout.NORTH);
+	}
+
+	public void initToolbar(Map<String, Favorite> favorites) {
+		toolBar.removeAll();
+
+		for (Favorite f : favorites.values()) {
+			toolBar.add(new FavoriteButton(f));
+		}
+
+		toolBar.setVisible(toolBar.getComponentCount() > 0);
 	}
 
 	private void initSplit() {
@@ -406,11 +434,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void windowDeactivated(WindowEvent e) {
 		log.debug(e);
 	}
-	
+
 	public void println(String str) {
-		logText.append(timeFormat.format(new Date()) + ' ' + str + '\n');
+		EventQueue.invokeLater(() -> {
+			logText.append(timeFormat.format(new Date()) + ' ' + str + '\n');
+		});
 	}
-	
+
 	@SuppressWarnings("resource")
 	public void println(String format, Object... args) {
 		println(new Formatter().format(format, args).toString());
@@ -423,7 +453,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			println(language.getString("log.localEntering"), localTable.getAddr());
 		} else {
 			log.debug("Enter remote: " + remoteTable.getAddr() + " begin");
-			println(language.getString("log.remoteEntering"), localTable.getAddr());
+			println(language.getString("log.remoteEntering"), remoteTable.getAddr());
 		}
 		pool.execute(() -> {
 			if (local) {
@@ -443,7 +473,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			} else {
 				remoteTable.setList(protocol.ls(remoteTable.getAddr()));
 				log.debug("Enter remote: " + remoteTable.getAddr() + " end");
-				println(language.getString("log.remoteEntered"), localTable.getAddr());
+				println(language.getString("log.remoteEntered"), remoteTable.getAddr());
 			}
 		});
 	}
@@ -513,7 +543,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		// menu site
 		public static final int KEY_MANAGE = 10;
-		public static final int KEY_SITE = 11;
+		public static final int KEY_FAVORITE = 11;
+		public static final int KEY_SITE = 12;
 
 		// menu lang
 		public static final int KEY_ENGLISH = 20;
@@ -597,12 +628,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 				case KEY_MANAGE:
 					break;
+				case KEY_FAVORITE:
+					new FavoriteDialog(MainFrame.this, true).setVisible(true);
+					break;
 				case KEY_SITE:
 					protocol = settings.getSites().get(resKey).create();
 					println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					pool.execute(() -> {
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							favoriteMenu.setEnabled(true);
+							initToolbar(protocol.getSite().getFavorites());
 							if (protocol.getSite().getLocal() != null) {
 								localTable.setAddr(protocol.getSite().getLocal());
 							}
@@ -644,6 +680,70 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		@Override
 		public void putValue(String key, Object value) {
 			log.debug("putValue: key = " + key + ", value = " + value);
+		}
+	}
+
+	public class FavoriteButton extends JButton implements MouseListener, KeyListener {
+		private static final long serialVersionUID = 747095582318609981L;
+
+		private Favorite favorite;
+
+		public FavoriteButton(Favorite f) {
+			super(f.getName());
+
+			favorite = f;
+
+			setToolTipText(String.format(language.getString("tip.favorite"), f.getName()));
+			addMouseListener(this);
+			addKeyListener(this);
+		}
+
+		private void click() {
+			remoteTable.setAddr(favorite.getRemote());
+			localTable.setAddr(favorite.getLocal());
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			if (e.isControlDown()) {
+				toolBar.remove(this);
+				toolBar.setVisible(toolBar.getComponentCount() > 0);
+				protocol.getSite().getFavorites().remove(favorite.getName());
+				settings.save();
+			} else {
+				click();
+			}
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+		}
+
+		@Override
+		public void keyTyped(KeyEvent e) {
+		}
+
+		@Override
+		public void keyPressed(KeyEvent e) {
+		}
+
+		@Override
+		public void keyReleased(KeyEvent e) {
+			if (!e.isControlDown() && !e.isAltDown() && !e.isShiftDown() && (e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER)) {
+				click();
+			}
 		}
 	}
 }

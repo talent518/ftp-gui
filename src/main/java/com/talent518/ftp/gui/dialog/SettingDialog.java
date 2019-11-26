@@ -1,4 +1,4 @@
-package com.talent518.ftp.gui;
+package com.talent518.ftp.gui.dialog;
 
 import javax.swing.JDialog;
 
