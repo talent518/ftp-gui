@@ -27,9 +27,21 @@ public class FTP extends IProtocol {
 	private static Logger log = Logger.getLogger(FTP.class);
 
 	private final FTPClient ftp;
-	private boolean printHash;
 	private int keepAliveTimeout = -1;
 	private int controlKeepAliveReplyTimeout = -1;
+	private final CopyStreamListener copyStreamListener = new CopyStreamListener() {
+		@Override
+		public void bytesTransferred(CopyStreamEvent event) {
+			bytesTransferred(event.getTotalBytesTransferred(), event.getBytesTransferred(), event.getStreamSize());
+		}
+
+		@Override
+		public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+			if (progressListener != null) {
+				progressListener.bytesTransferred(totalBytesTransferred, bytesTransferred, streamSize);
+			}
+		}
+	};
 
 	public FTP(Site s) {
 		super(s);
@@ -55,9 +67,7 @@ public class FTP extends IProtocol {
 			ftp = new FTPClient();
 		}
 
-		if (printHash) {
-			ftp.setCopyStreamListener(createListener());
-		}
+		ftp.setCopyStreamListener(copyStreamListener);
 		if (keepAliveTimeout >= 0) {
 			ftp.setControlKeepAliveTimeout(keepAliveTimeout);
 		}
@@ -91,27 +101,12 @@ public class FTP extends IProtocol {
 				config.setServerTimeZoneId(site.getServerTimeZoneId());
 			}
 		}
+		
 		ftp.configure(config);
 	}
 
-	private CopyStreamListener createListener() {
-		return new CopyStreamListener() {
-			private long megsTotal = 0;
-
-			@Override
-			public void bytesTransferred(CopyStreamEvent event) {
-				bytesTransferred(event.getTotalBytesTransferred(), event.getBytesTransferred(), event.getStreamSize());
-			}
-
-			@Override
-			public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
-				long megs = totalBytesTransferred / 1000000;
-				for (long l = megsTotal; l < megs; l++) {
-					System.err.print("#");
-				}
-				megsTotal = megs;
-			}
-		};
+	public boolean isConnected() {
+		return ftp.isConnected();
 	}
 
 	public boolean login() {
@@ -149,6 +144,8 @@ public class FTP extends IProtocol {
 
 			ftp.setUseEPSVwithIPv4(site.isUseEpsvWithIPv4());
 
+			setLogined(true);
+
 			return true;
 		} catch (IOException e) {
 			if (ftp.isConnected()) {
@@ -159,6 +156,7 @@ public class FTP extends IProtocol {
 			}
 
 			log.error("Connect error", e);
+			error = e.getMessage();
 
 			return false;
 		}
@@ -169,6 +167,7 @@ public class FTP extends IProtocol {
 			return ftp.printWorkingDirectory();
 		} catch (IOException e) {
 			log.error("pwd failure", e);
+			error = e.getMessage();
 			return "/";
 		}
 	}
@@ -197,6 +196,39 @@ public class FTP extends IProtocol {
 		}
 	}
 
+	@Override
+	public boolean mkdir(String remote) {
+		try {
+			return ftp.makeDirectory(remote);
+		} catch (IOException e) {
+			log.error("mkdir " + remote + " failure", e);
+			error = e.getMessage();
+			return false;
+		}
+	}
+
+	@Override
+	public boolean rmdir(String remote) {
+		try {
+			return ftp.removeDirectory(remote);
+		} catch (IOException e) {
+			log.error("rmdir " + remote + " failure", e);
+			error = e.getMessage();
+			return false;
+		}
+	}
+
+	@Override
+	public boolean unlink(String remote) {
+		try {
+			return ftp.deleteFile(remote);
+		} catch (IOException e) {
+			log.error("unlink " + remote + " failure", e);
+			error = e.getMessage();
+			return false;
+		}
+	}
+
 	public boolean storeFile(String remote, String local) {
 		InputStream input = null;
 
@@ -206,8 +238,10 @@ public class FTP extends IProtocol {
 			return ftp.storeFile(remote, input);
 		} catch (FileNotFoundException e) {
 			log.error("open local file '" + local + "' failure", e);
+			error = e.getMessage();
 		} catch (IOException e) {
 			log.error("upload file '" + local + "' failure", e);
+			error = e.getMessage();
 		} finally {
 			if (input != null) {
 				try {
@@ -217,7 +251,7 @@ public class FTP extends IProtocol {
 			}
 		}
 
-		return true;
+		return false;
 	}
 
 	public boolean retrieveFile(String remote, String local) {
@@ -229,8 +263,10 @@ public class FTP extends IProtocol {
 			return ftp.retrieveFile(remote, output);
 		} catch (FileNotFoundException e) {
 			log.error("open local file '" + local + "' failure", e);
+			error = e.getMessage();
 		} catch (IOException e) {
-			log.error("upload file '" + local + "' failure", e);
+			log.error("download file '" + local + "' failure", e);
+			error = e.getMessage();
 		} finally {
 			if (output != null) {
 				try {
@@ -251,9 +287,12 @@ public class FTP extends IProtocol {
 
 			ftp.disconnect();
 
+			setLogined(false);
+
 			return ret;
 		} catch (IOException e) {
 			log.error("logout failure", e);
+			error = e.getMessage();
 		}
 		return false;
 	}

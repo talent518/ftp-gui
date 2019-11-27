@@ -11,10 +11,6 @@ import java.util.Comparator;
 import java.util.EventObject;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.Executors;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import javax.swing.AbstractCellEditor;
 import javax.swing.BorderFactory;
@@ -39,7 +35,6 @@ import com.talent518.ftp.util.PinyinUtil;
 
 public class ProgressTable extends JPanel {
 	private static final long serialVersionUID = -1789896671155598722L;
-	private static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
 
 	private static final Icon leftIcon = new ImageIcon(ProgressTable.class.getResource("/icons/left.png"));
 	private static final Icon rightIcon = new ImageIcon(ProgressTable.class.getResource("/icons/right.png"));
@@ -213,8 +208,8 @@ public class ProgressTable extends JPanel {
 			sortKey = sortKeys.get(0);
 			comparator = comparators[sortKey.getColumn()];
 			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
+			
 			getList().sort(this);
-
 			fireSortOrderChanged();
 		}
 
@@ -533,6 +528,7 @@ public class ProgressTable extends JPanel {
 				r.setSite("default");
 				r.setLocal("/home/abao");
 				r.setDirection(Math.random() <= 0.5f);
+				r.setType(Math.random() <= 0.5f ? "DIR" : "REG");
 				r.setRemote("/home/abao");
 				r.setProgress((int) (Math.random() * 101));
 				r.setSize((long) (Math.random() * 100000000));
@@ -652,10 +648,10 @@ public class ProgressTable extends JPanel {
 					type = (String) value;
 					break;
 				case 5:
-					progress = (int) value;
+					size = (long) value;
 					break;
 				case 6:
-					size = (long) value;
+					progress = (int) value;
 					break;
 				case 7:
 					status = (int) value;
@@ -734,7 +730,10 @@ public class ProgressTable extends JPanel {
 		public void setWritten(long written) {
 			this.written = written;
 
-			this.progress = (int) ((double) this.written / (double) this.size * 100.0f);
+			if(this.written == this.size || this.size == 0)
+				this.progress = 100;
+			else
+				this.progress = (int) ((double) this.written / (double) this.size * 100.0f);
 		}
 
 		public void addWritten(long written) {

@@ -12,6 +12,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -150,6 +151,7 @@ public class FileTable extends JPanel {
 	private JTextField addr;
 	private Listener listener = null;
 	private TableRowSorter rowSorter = null;
+	private String currentPath = null;
 
 	public FileTable(String label) {
 		this(label, false);
@@ -247,7 +249,7 @@ public class FileTable extends JPanel {
 			@Override
 			public void keyReleased(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_ENTER && listener != null) {
-					listener.enterAddr(isLocal, addr.getText());
+					listener.enterAddr(isLocal, getRealPath(addr.getText()));
 				}
 			}
 
@@ -261,7 +263,7 @@ public class FileTable extends JPanel {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (listener != null) {
-					listener.enterAddr(isLocal, addr.getText());
+					listener.enterAddr(isLocal, getRealPath(addr.getText()));
 				}
 			}
 		});
@@ -297,14 +299,68 @@ public class FileTable extends JPanel {
 
 	public void setAddr(String text) {
 		if (listener != null) {
-			listener.enterAddr(isLocal, text);
+			listener.enterAddr(isLocal, getRealPath(text));
 		} else {
-			addr.setText(text);
+			addr.setText(getRealPath(text));
 		}
 	}
 
 	public void setAddrText(String text) {
+		currentPath = text;
 		addr.setText(text);
+	}
+
+	public String getCurrentPath() {
+		return currentPath;
+	}
+
+	public String getParentPath() {
+		if (isLocal) {
+			return new File(addr.getText()).getParent();
+		} else {
+			int i = addr.getText().lastIndexOf('/');
+			if (i > 0)
+				return addr.getText().substring(0, i);
+			else
+				return "/";
+		}
+	}
+
+	public String getPath(String name) {
+		if (isLocal) {
+			return addr.getText().replaceAll("[\\/]+$", "") + File.separator + name;
+		} else {
+			return addr.getText().replaceAll("[/]+$", "") + '/' + name;
+		}
+	}
+
+	private String getRealPath(String path) {
+		if (path == null || path.length() == 0 || path.equals(".")) {
+			return isLocal ? System.getProperty("user.dir") : addr.getText();
+		}
+
+		char separator;
+		if (isLocal) {
+			separator = File.separatorChar;
+			String resolve = currentPath != null ? currentPath : System.getProperty("user.dir");
+			path = Paths.get(resolve).resolve(path).toAbsolutePath().toString();
+		} else {
+			separator = '/';
+			if (!path.startsWith("/"))
+				path = (currentPath != null ? currentPath : "") + '/' + path;
+		}
+
+		path = path.replaceAll(separator + "\\.$", "");
+		path = path.replaceAll(separator + "\\." + separator, "" + separator);
+
+		if (path.contains("..")) {
+			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\.$", "" + separator);
+			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\." + separator, "" + separator);
+			path = path.replaceAll(separator + "\\.\\.$", "");
+			path = path.replaceAll(separator + "\\.\\." + separator, "" + separator);
+		}
+
+		return path;
 	}
 
 	public void setListener(Listener l) {
@@ -444,9 +500,13 @@ public class FileTable extends JPanel {
 			sortKey = sortKeys.get(0);
 			comparator = comparators[sortKey.getColumn()];
 			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
-			getList().sort(this);
-
-			fireSortOrderChanged();
+			
+			try {
+				getList().sort(this);
+				fireSortOrderChanged();
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
 		}
 
 		private SortKey toggle(SortKey key) {

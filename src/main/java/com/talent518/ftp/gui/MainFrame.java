@@ -24,14 +24,21 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Formatter;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.Action;
 import javax.swing.BorderFactory;
@@ -130,6 +137,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private final Settings settings = Settings.instance();
 	private final ResourceBundle language = Settings.language();
+	private final Transfer transfer = new Transfer();
 
 	JPanel content = new JPanel(true);
 
@@ -504,6 +512,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						println("-----");
 					}
 				} else {
+					localTable.setAddrText(localTable.getCurrentPath());
 					log.debug("Enter local: " + addr + " ERROR: not directory");
 					println(language.getString("log.localEntererr"), addr);
 				}
@@ -519,6 +528,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						println("-----");
 					}
 				} else {
+					remoteTable.setAddrText(remoteTable.getCurrentPath());
 					log.debug("Enter remote: " + addr + " , ERROR: " + protocol.getError());
 					println(language.getString("log.remoteEntererr"), addr, protocol.getError());
 				}
@@ -552,30 +562,351 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (r.isDir()) {
 			if (local) {
 				if (r.isUp()) {
-					i = localTable.getAddr().lastIndexOf(File.separator);
-					if (i > 0)
-						localTable.setAddr(localTable.getAddr().substring(0, i));
-					else if (File.separator.equals("/"))
-						localTable.setAddr(File.separator);
-					else
-						localTable.setAddr(localTable.getAddr());
+					localTable.setAddr(localTable.getParentPath());
 				} else {
-					localTable.setAddr(localTable.getAddr().replaceAll("[\\/]+$", "") + File.separator + r.getName());
+					localTable.setAddr(localTable.getPath(r.getName()));
 				}
 			} else {
 				if (r.isUp()) {
-					i = remoteTable.getAddr().lastIndexOf('/');
-					if (i > 0)
-						remoteTable.setAddr(remoteTable.getAddr().substring(0, i));
-					else
-						remoteTable.setAddr("/");
+					remoteTable.setAddr(remoteTable.getParentPath());
 				} else {
-					remoteTable.setAddr(remoteTable.getAddr().replaceAll("[\\/]+$", "") + '/' + r.getName());
+					remoteTable.setAddr(remoteTable.getPath(r.getName()));
 				}
 			}
 		} else {
 			status.setText("doubleClicked: " + r.getName());
 		}
+	}
+
+	public class Transfer {
+		private AtomicBoolean running = new AtomicBoolean(false);
+		private AtomicBoolean diring = new AtomicBoolean(false);
+		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(1000);
+		private LinkedList<ProgressTable.Row> link = new LinkedList<ProgressTable.Row>();
+		private AtomicInteger nThread = new AtomicInteger(0);
+		private LinkedList<ProgressTable.Row> progresses = new LinkedList<ProgressTable.Row>();
+		private Timer timer;
+
+		public void start() {
+			if (running.get())
+				return;
+
+			println("Transfer start");
+			running.set(true);
+
+			timer = new Timer("transfer", true);
+			timer.schedule(new RefreshTask(), 100, 100);
+
+			// pool.execute(new ProgressQueue(progressTable.getList()));
+			new ProgressQueue(progressTable.getList()).run();
+		}
+
+		public void add(ProgressTable.Row row) {
+			if (running.get()) {
+				// pool.execute(new ProgressQueue(row));
+				new ProgressQueue(row).run();
+			}
+		}
+
+		public void addAll(List<ProgressTable.Row> rows) {
+			if (running.get()) {
+				// pool.execute(new ProgressQueue(rows));
+				new ProgressQueue(rows).run();
+			}
+		}
+
+		private class ProgressQueue implements Runnable {
+			LinkedList<ProgressTable.Row> lr = new LinkedList<ProgressTable.Row>();
+
+			public ProgressQueue(List<ProgressTable.Row> list) {
+				lr.addAll(list);
+			}
+
+			public ProgressQueue(ProgressTable.Row row) {
+				lr.add(row);
+			}
+
+			@Override
+			public void run() {
+				synchronized (link) {
+					while (!lr.isEmpty()) {
+						link.add(lr.removeFirst());
+					}
+				}
+
+				if (!diring.getAndSet(true)) {
+					new DirectoryThread().start();
+				}
+			}
+		}
+
+		private abstract class TransferThread extends Thread {
+			Map<String, IProtocol> sites = new HashMap<String, IProtocol>();
+			List<FileTable.Row> files = new ArrayList<FileTable.Row>();
+			ProgressTable.Row r, p;
+			File f;
+			IProtocol protocol;
+
+			// return true skip transfer process
+			protected boolean isSkip() {
+				if (sites.containsKey(r.getSite())) {
+					protocol = sites.get(r.getSite());
+				} else if (!settings.getSites().containsKey(r.getSite())) {
+					println(language.getString("log.siteNotExists"), r.getSite());
+					return true;
+				} else {
+					protocol = settings.getSites().get(r.getSite()).create();
+
+					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					if (protocol.login())
+						println(language.getString("log.connected"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+
+					sites.put(r.getSite(), protocol);
+				}
+
+				if (!protocol.isConnected() && protocol.isLogined()) {
+					protocol.logout();
+					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					if (protocol.login())
+						println(language.getString("log.connected"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+				}
+
+				if (!protocol.isConnected() || !protocol.isLogined()) {
+					r.setStatus(ProgressTable.Row.STATUS_ERROR);
+					println("connect or login failure by %1$s", r.getSite());
+					return true;
+				}
+
+				return false;
+			}
+
+			@Override
+			public final void run() {
+				work();
+
+				for (IProtocol p2 : sites.values())
+					p2.dispose();
+			}
+
+			protected abstract void work();
+		}
+
+		private class FileThread extends TransferThread {
+			@Override
+			public void work() {
+				nThread.incrementAndGet();
+
+				while (running.get()) {
+					try {
+						r = queue.take();
+					} catch (InterruptedException e1) {
+						e1.printStackTrace();
+						break;
+					}
+					if (r.getSite() == null)
+						break;
+
+					if (isSkip())
+						continue;
+
+					protocol.setProgressListener(new Listener(r));
+					r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+
+					if (r.isDirection()) {
+						println("uploading %1$s to %2$s for %3$s", r.getLocal(), r.getRemote(), r.getSite());
+						if (protocol.storeFile(r.getRemote(), r.getLocal())) {
+							println("uploaded %1$s to %2$s complete for %3$s", r.getLocal(), r.getRemote(), r.getSite());
+							r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+						} else {
+							println("upload %1$s to %2$s failure for %3$s: %4$s", r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
+							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+						}
+					} else {
+						if (protocol.retrieveFile(r.getRemote(), r.getLocal())) {
+							r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+						} else {
+							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+						}
+					}
+				}
+
+				nThread.decrementAndGet();
+			}
+		}
+
+		private class DirectoryThread extends TransferThread {
+			@Override
+			public void work() {
+				diring.set(true);
+
+				while (running.get()) {
+					synchronized (link) {
+						if (link.isEmpty())
+							r = null;
+						else
+							r = link.removeFirst();
+					}
+					if (r == null || r.getSite() == null)
+						break;
+
+					if (r.getStatus() == ProgressTable.Row.STATUS_READY) {
+						if ("REG".equals(r.getType())) {
+							try {
+								queue.put(r);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+						} else if ("DIR".equals(r.getType())) {
+							r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+							if (r.isDirection()) {
+								if (isSkip())
+									continue;
+								println("Making remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
+								if (protocol.mkdir(r.getRemote())) {
+									println("Maked remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
+									r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+									r.setWritten(r.getSize());
+									f = new File(r.getLocal());
+									if (f.isDirectory()) {
+										File[] ls = f.listFiles();
+										if (ls != null) {
+											for (File f2 : ls) {
+												FileTable.Row r2 = new FileTable.Row(f2);
+												p = new ProgressTable.Row();
+												p.setSite(r.getSite());
+												p.setLocal(r.getLocal() + File.separator + r2.getName());
+												p.setDirection(true);
+												p.setRemote(r.getRemote() + "/" + r2.getName());
+												p.setType(r2.getType());
+												p.setSize(r2.getSize());
+												p.setStatus(ProgressTable.Row.STATUS_READY);
+												synchronized (progresses) {
+													progresses.add(p);
+												}
+												synchronized (link) {
+													link.add(p);
+												}
+											}
+										}
+									} else {
+										println("Get local directory list failure by %1$s, reason is not directory", r.getLocal());
+									}
+								} else {
+									println("Make remote directory %1$s failure in %2$s site", r.getRemote(), r.getSite());
+									r.setStatus(ProgressTable.Row.STATUS_ERROR);
+								}
+							} else {
+								f = new File(r.getLocal());
+								if (f.exists()) {
+									if (f.isDirectory()) {
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+										r.setWritten(r.getSize());
+									} else {
+										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										println("%1$s is not a directory", r.getLocal());
+									}
+								} else {
+									try {
+										f.mkdir();
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+										r.setWritten(r.getSize());
+										println("make local directory success by %1$s", r.getLocal());
+									} catch (Exception e) {
+										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										println("make local directory by %1$s failure: %2$s", r.getLocal(), e.getMessage());
+									}
+								}
+
+								if (isSkip())
+									continue;
+
+								println("Getting remote directory list by %1$s in %2$s site", r.getRemote(), r.getSite());
+								if (protocol.ls(r.getRemote(), files)) {
+									println("Getted remote directory list by %1$s in %2$s site", r.getRemote(), r.getSite());
+									for (FileTable.Row r2 : files) {
+										p = new ProgressTable.Row();
+										p.setSite(r.getSite());
+										p.setLocal(r.getLocal() + File.separator + r2.getName());
+										p.setDirection(false);
+										p.setRemote(r.getRemote() + "/" + r2.getName());
+										p.setType(r2.getType());
+										p.setSize(r2.getSize());
+										p.setStatus(ProgressTable.Row.STATUS_READY);
+										synchronized (progresses) {
+											progresses.add(p);
+										}
+										synchronized (link) {
+											link.add(p);
+										}
+									}
+								} else {
+									println("Get remote directory list failure by %1$s in %2$s site: %3$s", r.getRemote(), r.getSite(), protocol.getError());
+								}
+								files.clear();
+							}
+						} else {
+							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							println("%1$s Not support of type", r.getLocal());
+						}
+					}
+				}
+
+				diring.set(false);
+			}
+		}
+
+		private class Listener implements IProtocol.ProgressListener {
+			final ProgressTable.Row row;
+
+			public Listener(ProgressTable.Row r) {
+				row = r;
+			}
+
+			@Override
+			public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+				row.setWritten(totalBytesTransferred);
+			}
+		};
+
+		private class RefreshTask extends TimerTask {
+			@Override
+			public void run() {
+				if (!running.get() || (!diring.get() && queue.size() == 0)) {
+					running.set(false);
+					EventQueue.invokeLater(refreshRunnable);
+					println("Transfer end");
+					
+					timer.cancel();
+					timer = null;
+				} else {
+					for (int i = nThread.get(); i < 5 && i < queue.size(); i++)
+						new FileThread().start();
+
+					for (int i = queue.size(); i < 5; i++)
+						try {
+							queue.put(new ProgressTable.Row());
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+
+					EventQueue.invokeLater(refreshRunnable);
+				}
+			}
+
+			private Runnable refreshRunnable = new Runnable() {
+				@Override
+				public void run() {
+					final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+					synchronized (progresses) {
+						while (!progresses.isEmpty())
+							list.add(progresses.removeFirst());
+					}
+
+					progressTable.getList().addAll(list);
+					progressTable.fireTableDataChanged();
+				}
+			};
+		};
 	}
 
 	public class Menu extends JMenu {
@@ -785,18 +1116,20 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 
 				case KEY_UPLOAD:
-					addProgress();
+					addProgress(true, true, localMenu.getRow());
 					break;
 				case KEY_LQUEUE:
-					addProgress();
+					addProgress(false, true, localMenu.getRow());
 					break;
 				case KEY_LDELETE:
 					break;
 				case KEY_LMKDIR:
 					break;
 				case KEY_DOWNLOAD:
+					addProgress(true, false, remoteMenu.getRow());
 					break;
 				case KEY_RQUEUE:
+					addProgress(false, false, remoteMenu.getRow());
 					break;
 				case KEY_RDELETE:
 					break;
@@ -815,19 +1148,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public void putValue(String key, Object value) {
 			log.debug("putValue: key = " + key + ", value = " + value);
 		}
-		
-		private void addProgress() {
-			Row r = localMenu.getRow();
+
+		private void addProgress(boolean isStart, boolean isLocal, Row r) {
 			ProgressTable.Row progress = new ProgressTable.Row();
 			progress.setSite(protocol.getSite().getName());
-			progress.setLocal(localTable.getAddr() + File.separator + r.getName());
-			progress.setDirection(true);
-			progress.setRemote(remoteTable.getAddr() + '/' + r.getName());
+			progress.setLocal(localTable.getPath(r.getName()));
+			progress.setDirection(isLocal);
+			progress.setRemote(remoteTable.getPath(r.getName()));
 			progress.setType(r.getType());
 			progress.setSize(r.getSize());
 			progress.setStatus(ProgressTable.Row.STATUS_READY);
 			progressTable.getList().add(progress);
 			progressTable.fireTableDataChanged();
+
+			if (isStart) {
+				transfer.start();
+			} else {
+				transfer.add(progress);
+			}
 		}
 	}
 
