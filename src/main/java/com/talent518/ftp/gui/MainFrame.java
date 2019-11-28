@@ -592,7 +592,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			if (running.get())
 				return;
 
-			println("Transfer start");
+			println(language.getString("log.transferBegin"));
 			running.set(true);
 
 			lock = progressTable.getList();
@@ -677,7 +677,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 				if (!protocol.isConnected() || !protocol.isLogined()) {
 					r.setStatus(ProgressTable.Row.STATUS_ERROR);
-					println("connect or login failure by %1$s", r.getSite());
+					println(language.getString("log.connectOrLoginFailure"), r.getSite(), protocol.getError());
 					return true;
 				}
 
@@ -719,24 +719,27 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 
 					if (r.isDirection()) {
-						println("uploading %1$s to %2$s for %3$s", r.getLocal(), r.getRemote(), r.getSite());
+						println(language.getString("log.uploading"), r.getLocal(), r.getRemote(), r.getSite());
 						if (protocol.storeFile(r.getRemote(), r.getLocal())) {
-							println("uploaded %1$s to %2$s complete for %3$s", r.getLocal(), r.getRemote(), r.getSite());
+							println(language.getString("log.uploaded"), r.getLocal(), r.getRemote(), r.getSite());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 							}
 						} else {
-							println("upload %1$s to %2$s failure for %3$s: %4$s", r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
+							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
 						}
 					} else {
+						println(language.getString("log.downloading"), r.getLocal(), r.getRemote(), r.getSite());
 						if (protocol.retrieveFile(r.getRemote(), r.getLocal())) {
+							println(language.getString("log.downloaded"), r.getLocal(), r.getRemote(), r.getSite());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 							}
 						} else {
+							println(language.getString("log.downloaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
@@ -777,9 +780,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							if (r.isDirection()) {
 								if (isSkip())
 									continue;
-								println("Making remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
+								println(language.getString("log.mkdiring"), r.getRemote(), r.getSite());
 								if (protocol.mkdir(r.getRemote())) {
-									println("Maked remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
+									println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 									}
@@ -806,10 +809,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 											}
 										}
 									} else {
-										println("Get local directory list failure by %1$s, reason is not directory", r.getLocal());
+										println(language.getString("log.localDirList"), r.getLocal());
 									}
 								} else {
-									println("Make remote directory %1$s failure in %2$s site", r.getRemote(), r.getSite());
+									println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
@@ -825,7 +828,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
-										println("%1$s is not a directory", r.getLocal());
+										println(language.getString("log.notLocalDir"), r.getLocal());
 									}
 								} else {
 									try {
@@ -833,21 +836,21 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 										}
-										println("make local directory success by %1$s", r.getLocal());
+										println(language.getString("log.lmkdired"), r.getLocal());
 									} catch (Exception e) {
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
-										println("make local directory by %1$s failure: %2$s", r.getLocal(), e.getMessage());
+										println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
 									}
 								}
 
 								if (isSkip())
 									continue;
 
-								println("Getting remote directory list by %1$s in %2$s site", r.getRemote(), r.getSite());
+								println(language.getString("log.dirlisting"), r.getRemote(), r.getSite());
 								if (protocol.ls(r.getRemote(), files)) {
-									println("Getted remote directory list by %1$s in %2$s site", r.getRemote(), r.getSite());
+									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
 									for (FileTable.Row r2 : files) {
 										p = new ProgressTable.Row();
 										p.setSite(r.getSite());
@@ -865,7 +868,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										}
 									}
 								} else {
-									println("Get remote directory list failure by %1$s in %2$s site: %3$s", r.getRemote(), r.getSite(), protocol.getError());
+									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 								}
 								files.clear();
 							}
@@ -873,7 +876,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
-							println("%1$s Not support of type", r.getLocal());
+							println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
 						}
 					}
 				}
@@ -903,7 +906,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				if (!running.get() || (!diring.get() && queue.size() == 0)) {
 					running.set(false);
 					pool.execute(refreshRunnable);
-					println("Transfer end");
+					println(language.getString("log.transferEnd"));
 
 					timer.cancel();
 					timer = null;
@@ -1189,13 +1192,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			progress.setType(r.getType());
 			progress.setSize(r.getSize());
 			progress.setStatus(ProgressTable.Row.STATUS_READY);
-			progressTable.getList().add(progress);
-			progressTable.fireTableDataChanged();
+
+			synchronized (progressTable.getList()) {
+				progressTable.getList().add(progress);
+				progressTable.fireTableDataChanged();
+			}
+			transfer.add(progress);
 
 			if (isStart) {
 				transfer.start();
-			} else {
-				transfer.add(progress);
 			}
 		}
 	}
