@@ -3,6 +3,7 @@ package com.talent518.ftp.gui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -139,24 +140,34 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final ResourceBundle language = Settings.language();
 	private final Transfer transfer = new Transfer();
 
-	JPanel content = new JPanel(true);
+	private final JPanel content = new JPanel(true);
 
-	JMenuBar menuBar = new JMenuBar();
-	JToolBar toolBar = new JToolBar();
-	MenuItem favoriteMenu;
-	PopupMenu localMenu = new PopupMenu();
-	PopupMenu remoteMenu = new PopupMenu();
-	ProgressMenu progressMenu = new ProgressMenu();
+	private final JMenuBar menuBar = new JMenuBar();
+	private final JToolBar toolBar = new JToolBar();
+	private final PopupMenu localMenu = new PopupMenu();
+	private final PopupMenu remoteMenu = new PopupMenu();
+	private final ProgressMenu progressMenu = new ProgressMenu();
 
-	JSplitPane lrSplit = new JSplitPane();
-	JSplitPane lvSplit = new JSplitPane();
-	JSplitPane rvSplit = new JSplitPane();
+	private final JSplitPane lrSplit = new JSplitPane();
+	private final JSplitPane lvSplit = new JSplitPane();
+	private final JSplitPane rvSplit = new JSplitPane();
 
-	FileTable remoteTable = new FileTable(language.getString("remote"));
-	FileTable localTable = new FileTable(language.getString("local"), true);
-	ProgressTable progressTable = new ProgressTable();
-	JTextArea logText = new JTextArea();
-	IProtocol protocol = null;
+	private final FileTable remoteTable = new FileTable(language.getString("remote"));
+	private final FileTable localTable = new FileTable(language.getString("local"), true);
+	private final ProgressTable progressTable = new ProgressTable();
+	private final JTextArea logText = new JTextArea();
+
+	private final JLabel leftStatus = new JLabel();
+	private final JLabel rightStatus = new JLabel();
+
+	private MenuItem favoriteMenu;
+	private MenuItem localUploadMenu;
+	private MenuItem localQueueMenu;
+	private MenuItem progressTransferMenu;
+	private MenuItem progressSuspendMenu;
+	private MenuItem progressCleanAllMenu;
+
+	private IProtocol protocol = null;
 
 	public MainFrame() {
 		super();
@@ -364,10 +375,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		content.add(lrSplit, BorderLayout.CENTER);
 	}
 
-	private JLabel status = new JLabel("Status");
-
 	private void initStatusBar() {
-		status.setBorder(new LineBorder(new Color(0x999999), 1) {
+		JPanel panel = new JPanel();
+		panel.setBorder(new LineBorder(new Color(0x999999), 1) {
 			private static final long serialVersionUID = 8347901766288376013L;
 
 			@Override
@@ -389,14 +399,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				g2.setColor(oldColor);
 			}
 		});
-//		status.setFont(new Font(status.getFont().getFontName(), Font.PLAIN, 16));
-		content.add(status, BorderLayout.SOUTH);
+		panel.setLayout(new BorderLayout(10, 10));
+		panel.setPreferredSize(new Dimension(100, 30));
+		panel.add(leftStatus, BorderLayout.CENTER);
+		panel.add(rightStatus, BorderLayout.EAST);
+		content.add(panel, BorderLayout.SOUTH);
 	}
-
-	private MenuItem localUploadMenu;
-	private MenuItem localQueueMenu;
-	private MenuItem progressTransferMenu;
-	private MenuItem progressCleanAllMenu;
 
 	private void initPopupMenu() {
 		localUploadMenu = new MenuItem("local.upload", KeyEvent.VK_U, MenuItem.KEY_UPLOAD);
@@ -415,8 +423,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		progressTransferMenu = new MenuItem("progress.transfer", KeyEvent.VK_T, MenuItem.KEY_TRANSFER);
 		progressTransferMenu.setEnabled(false);
+		progressSuspendMenu = new MenuItem("progress.suspend", KeyEvent.VK_S, MenuItem.KEY_SUSPEND);
+		progressSuspendMenu.setEnabled(false);
 		progressCleanAllMenu = new MenuItem("progress.cleanAll", KeyEvent.VK_A, MenuItem.KEY_CLEAN_ALL);
 		progressMenu.add(progressTransferMenu);
+		progressMenu.add(progressSuspendMenu);
 		progressMenu.addSeparator();
 		progressMenu.add(progressCleanAllMenu);
 		progressMenu.add(new MenuItem("progress.cleanCompleted", KeyEvent.VK_C, MenuItem.KEY_CLEAN_COMPLETED));
@@ -567,7 +578,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	@Override
 	public void selectedRow(boolean local, int i, Row r) {
-		status.setText("selectedRow: " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
+		leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
 	}
 
 	@Override
@@ -587,7 +598,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 			}
 		} else {
-			status.setText("doubleClicked: " + r.getName());
+			leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
 		}
 	}
 
@@ -599,8 +610,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (transfer.isRunning()) {
 			progressTransferMenu.setEnabled(false);
 			progressCleanAllMenu.setEnabled(false);
+			progressSuspendMenu.setEnabled(true);
 		} else {
 			progressTransferMenu.setEnabled(false);
+			progressSuspendMenu.setEnabled(false);
 			for (ProgressTable.Row r2 : progressTable.getList()) {
 				if (r2.getStatus() == ProgressTable.Row.STATUS_READY) {
 					progressTransferMenu.setEnabled(true);
@@ -616,12 +629,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	@Override
 	public void selectedRow(int i, ProgressTable.Row r) {
-		status.setText("selectedRow: " + language.getString("type." + r.getType()) + " \"" + (r.isDirection() ? r.getLocal() : r.getRemote()) + "\" " + FileUtils.formatSize(r.getSize()));
+		leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
 	}
 
 	@Override
 	public void doubleClicked(int i, ProgressTable.Row r) {
-		status.setText("doubleClicked: " + language.getString("type." + r.getType()) + " \"" + (r.isDirection() ? r.getLocal() : r.getRemote()) + "\" " + FileUtils.formatSize(r.getSize()));
+		leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
 	}
 
 	public class Transfer {
@@ -630,16 +643,33 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(1000);
 		private LinkedList<ProgressTable.Row> link = new LinkedList<ProgressTable.Row>();
 		private AtomicInteger nThread = new AtomicInteger(0);
+		private AtomicInteger nReady = new AtomicInteger(0);
+		private AtomicInteger nRunning = new AtomicInteger(0);
+		private AtomicInteger nCompleted = new AtomicInteger(0);
+		private AtomicInteger nError = new AtomicInteger(0);
+		private AtomicInteger nSkip = new AtomicInteger(0);
+		private AtomicInteger nCount = new AtomicInteger(0);
 		private LinkedList<ProgressTable.Row> progresses = new LinkedList<ProgressTable.Row>();
 		private List<ProgressTable.Row> lock;
 		private Timer timer;
 
 		public void start() {
-			if (running.get())
+			if (isRunning())
 				return;
 
 			println(language.getString("log.transferBegin"));
+
 			running.set(true);
+			nReady.set(0);
+			nRunning.set(0);
+			nCompleted.set(0);
+			nError.set(0);
+			nSkip.set(0);
+			nCount.set(0);
+			rightStatus.setText("");
+
+			queue.clear();
+			link.clear();
 
 			lock = progressTable.getList();
 			timer = new Timer("transfer", true);
@@ -652,7 +682,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		public boolean isRunning() {
-			return running.get();
+			return running.get() || diring.get() || nThread.get() > 0;
+		}
+
+		public void stop() {
+			running.set(false);
 		}
 
 		public void add(ProgressTable.Row row) {
@@ -760,14 +794,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					if (r.getSite() == null)
 						break;
 
-					if (isSkip())
+					if (isSkip()) {
+						nError.incrementAndGet();
 						continue;
+					}
 
 					protocol.setProgressListener(new Listener(r));
 					synchronized (lock) {
 						r.setStatus(ProgressTable.Row.STATUS_RUNNING);
 					}
 
+					nRunning.incrementAndGet();
 					if (r.isDirection()) {
 						println(language.getString("log.uploading"), r.getLocal(), r.getRemote(), r.getSite());
 						if (protocol.storeFile(r.getRemote(), r.getLocal())) {
@@ -775,11 +812,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 							}
+							nCompleted.incrementAndGet();
 						} else {
 							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
+							nError.incrementAndGet();
 						}
 					} else {
 						println(language.getString("log.downloading"), r.getLocal(), r.getRemote(), r.getSite());
@@ -788,13 +827,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 							}
+							nCompleted.incrementAndGet();
 						} else {
 							println(language.getString("log.downloaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
+							nError.incrementAndGet();
 						}
 					}
+					nRunning.decrementAndGet();
 				}
 
 				nThread.decrementAndGet();
@@ -816,6 +858,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					if (r == null || r.getSite() == null)
 						break;
 
+					nCount.incrementAndGet();
+
 					if (r.getStatus() == ProgressTable.Row.STATUS_READY) {
 						if ("REG".equals(r.getType())) {
 							try {
@@ -827,15 +871,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_RUNNING);
 							}
+							nRunning.incrementAndGet();
 							if (r.isDirection()) {
-								if (isSkip())
+								if (isSkip()) {
+									nRunning.decrementAndGet();
 									continue;
+								}
 								println(language.getString("log.mkdiring"), r.getRemote(), r.getSite());
 								if (protocol.mkdir(r.getRemote())) {
 									println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
-									synchronized (lock) {
-										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-									}
+
 									f = new File(r.getLocal());
 									if (f.isDirectory()) {
 										File[] ls = f.listFiles();
@@ -858,7 +903,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 												}
 											}
 										}
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+										}
+										nCompleted.incrementAndGet();
 									} else {
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										}
+										nError.incrementAndGet();
 										println(language.getString("log.localDirList"), r.getLocal());
 									}
 								} else {
@@ -866,40 +919,44 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
+									nError.incrementAndGet();
 								}
 							} else {
 								f = new File(r.getLocal());
 								if (f.exists()) {
-									if (f.isDirectory()) {
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-										}
-									} else {
+									if (!f.isDirectory()) {
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
+										nError.incrementAndGet();
 										println(language.getString("log.notLocalDir"), r.getLocal());
+										continue;
 									}
 								} else {
 									try {
 										f.mkdir();
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-										}
 										println(language.getString("log.lmkdired"), r.getLocal());
 									} catch (Exception e) {
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
+										nError.incrementAndGet();
 										println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
+										continue;
 									}
 								}
 
-								if (isSkip())
+								if (isSkip()) {
+									nRunning.decrementAndGet();
 									continue;
+								}
 
 								println(language.getString("log.dirlisting"), r.getRemote(), r.getSite());
 								if (protocol.ls(r.getRemote(), files)) {
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+									}
+									nCompleted.incrementAndGet();
 									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
 									for (FileTable.Row r2 : files) {
 										p = new ProgressTable.Row();
@@ -918,16 +975,21 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										}
 									}
 								} else {
+									nError.incrementAndGet();
 									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 								}
 								files.clear();
 							}
+							nRunning.decrementAndGet();
 						} else {
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
+							nError.incrementAndGet();
 							println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
 						}
+					} else {
+						nSkip.incrementAndGet();
 					}
 				}
 
@@ -953,26 +1015,36 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			@Override
 			public void run() {
-				if (!running.get() || (!diring.get() && queue.size() == 0)) {
-					running.set(false);
-					pool.execute(refreshRunnable);
+				if (isRunning()) {
+					if (!diring.get() && queue.size() == 0) {
+						running.set(false);
+					}
+
+					if (running.get())
+						for (int i = nThread.get(); i < NTHREAD && i < queue.size(); i++)
+							new FileThread().start();
+					else {
+						if (diring.get() && queue.remainingCapacity() == 0)
+							try {
+								queue.take();
+							} catch (InterruptedException e1) {
+								e1.printStackTrace();
+							}
+						for (int i = queue.size(); i < NTHREAD && i < nThread.get(); i++)
+							try {
+								queue.put(new ProgressTable.Row());
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+					}
+				} else {
 					println(language.getString("log.transferEnd"));
 
 					timer.cancel();
 					timer = null;
-				} else {
-					for (int i = nThread.get(); i < NTHREAD && i < queue.size(); i++)
-						new FileThread().start();
-
-					for (int i = queue.size(); i < NTHREAD; i++)
-						try {
-							queue.put(new ProgressTable.Row());
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						}
-
-					pool.execute(refreshRunnable);
 				}
+
+				pool.execute(refreshRunnable);
 			}
 
 			private Runnable refreshRunnable = new Runnable() {
@@ -986,11 +1058,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 					synchronized (lock) {
 						progressTable.getList().addAll(list);
-						progressTable.fireTableDataChanged();
 					}
+					rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
+					progressTable.fireTableDataChanged();
 				}
 			};
-		};
+		}
 	}
 
 	public class Menu extends JMenu {
@@ -1091,9 +1164,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		// popup progress menu
 		public static final int KEY_TRANSFER = 60;
-		public static final int KEY_CLEAN_ALL = 61;
-		public static final int KEY_CLEAN_COMPLETED = 62;
-		public static final int KEY_CLEAN_ERROR = 63;
+		public static final int KEY_SUSPEND = 61;
+		public static final int KEY_CLEAN_ALL = 62;
+		public static final int KEY_CLEAN_COMPLETED = 63;
+		public static final int KEY_CLEAN_ERROR = 64;
 
 		String resKey, resVal;
 		private int key;
@@ -1251,6 +1325,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_TRANSFER:
 					transfer.start();
 					break;
+				case KEY_SUSPEND:
+					transfer.stop();
+					break;
 				case KEY_CLEAN_ALL:
 					progressTable.clear(true);
 					progressCleanAllMenu.setEnabled(false);
@@ -1287,8 +1364,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			synchronized (progressTable.getList()) {
 				progressTable.getList().add(progress);
-				progressTable.fireTableDataChanged();
 			}
+			progressTable.fireTableDataChanged();
 			transfer.add(progress);
 
 			if (isStart) {
@@ -1304,8 +1381,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						return t.getStatus() == status;
 					}
 				});
-				progressTable.fireTableDataChanged();
 			}
+			progressTable.fireTableDataChanged();
 		}
 	}
 

@@ -159,9 +159,9 @@ public class ProgressTable extends JPanel {
 	public void clear(boolean changed) {
 		synchronized (getList()) {
 			getList().clear();
-			if (changed)
-				fireTableDataChanged();
 		}
+		if (changed)
+			fireTableDataChanged();
 	}
 
 	public List<Row> getList() {
@@ -173,8 +173,8 @@ public class ProgressTable extends JPanel {
 			synchronized (getList()) {
 				getList().clear();
 				getList().addAll(list);
-				fireTableDataChanged();
 			}
+			fireTableDataChanged();
 		});
 	}
 
@@ -258,8 +258,8 @@ public class ProgressTable extends JPanel {
 
 			synchronized (getList()) {
 				getList().sort(this);
-				fireSortOrderChanged();
 			}
+			fireSortOrderChanged();
 		}
 
 		private SortKey toggle(SortKey key) {
