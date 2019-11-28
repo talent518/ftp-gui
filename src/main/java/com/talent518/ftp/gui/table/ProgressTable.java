@@ -5,6 +5,8 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,6 +27,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.RowSorter;
 import javax.swing.SortOrder;
 import javax.swing.SwingConstants;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
@@ -44,6 +48,7 @@ public class ProgressTable extends JPanel {
 	private JTable table;
 	private Model model;
 	private TableRowSorter rowSorter;
+	private Listener listener = null;
 
 	public ProgressTable() {
 		model = new Model();
@@ -51,10 +56,36 @@ public class ProgressTable extends JPanel {
 		rowSorter = new TableRowSorter();
 
 		table.setRowSorter(rowSorter);
-		table.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		table.setRowHeight(30);
 		table.setBorder(BorderFactory.createEmptyBorder());
 		table.setColumnSelectionAllowed(false);
+		table.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				if (listener != null) {
+					try {
+						listener.selectedRow(table.getSelectedRow(), getList().get(table.getSelectedRow()));
+					} catch (ArrayIndexOutOfBoundsException e2) {
+					}
+				}
+			}
+		});
+		table.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1 && listener != null) {
+					try {
+						listener.doubleClicked(table.getSelectedRow(), getList().get(table.getSelectedRow()));
+					} catch (ArrayIndexOutOfBoundsException e2) {
+					}
+				} else if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
+					int i = table.rowAtPoint(e.getPoint());
+					table.addRowSelectionInterval(i, i);
+					listener.rightClicked(i, i >= 0 && i < getList().size() ? getList().get(table.getSelectedRow()) : null, e);
+				}
+			}
+		});
 
 		TableColumn tableColumn;
 
@@ -110,6 +141,10 @@ public class ProgressTable extends JPanel {
 	public Model getModel() {
 		return model;
 	}
+	
+	public void setListener(Listener l) {
+		listener = l;
+	}
 
 	public void fireTableDataChanged() {
 		model.fireTableDataChanged();
@@ -118,6 +153,14 @@ public class ProgressTable extends JPanel {
 	public void clear() {
 		synchronized (getList()) {
 			getList().clear();
+		}
+	}
+
+	public void clear(boolean changed) {
+		synchronized (getList()) {
+			getList().clear();
+			if (changed)
+				fireTableDataChanged();
 		}
 	}
 
@@ -323,6 +366,14 @@ public class ProgressTable extends JPanel {
 		@Override
 		public void rowsUpdated(int firstRow, int endRow, int column) {
 		}
+	}
+
+	public interface Listener {
+		public void rightClicked(int i, Row r, MouseEvent e);
+
+		public void selectedRow(int i, Row r);
+
+		public void doubleClicked(int i, Row r);
 	}
 
 	public class TypeColumn extends AbstractCellEditor implements TableCellRenderer {
@@ -727,7 +778,7 @@ public class ProgressTable extends JPanel {
 
 		public void setStatus(int status) {
 			this.status = status;
-			if(status == STATUS_COMPLETED)
+			if (status == STATUS_COMPLETED)
 				this.progress = 100;
 		}
 
