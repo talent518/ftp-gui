@@ -108,6 +108,8 @@ public class Settings {
 	private String lang = Locale.getDefault().getLanguage();
 	private String country = Locale.getDefault().getCountry();
 
+	private int nthreads = 5;
+
 	private Map<String, Site> sites = new HashMap<String, Site>();
 	private List<String> siteNames = new ArrayList<String>();
 
@@ -148,6 +150,16 @@ public class Settings {
 	public Settings setWatch(boolean watch) {
 		this.watch = watch;
 		return this;
+	}
+
+	public int getNthreads() {
+		if(nthreads <= 0)
+			nthreads = 1;
+		return nthreads;
+	}
+
+	public void setNthreads(int nthreads) {
+		this.nthreads = nthreads;
 	}
 
 	public Map<String, Site> getSites() {

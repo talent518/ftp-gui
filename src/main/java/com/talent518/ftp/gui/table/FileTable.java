@@ -372,7 +372,9 @@ public class FileTable extends JPanel {
 	}
 
 	public void clear() {
-		model.getList().clear();
+		synchronized (getList()) {
+			getList().clear();
+		}
 	}
 
 	public List<Row> getList() {
@@ -381,12 +383,14 @@ public class FileTable extends JPanel {
 
 	public void setList(List<Row> list) {
 		EventQueue.invokeLater(() -> {
-			getList().clear();
-			if ((isLocal && getAddr().length() > 1) || (!isLocal && !"/".equals(getAddr()))) {
-				getList().add(new Row());
+			synchronized (getList()) {
+				getList().clear();
+				if ((isLocal && getAddr().length() > 1) || (!isLocal && !"/".equals(getAddr()))) {
+					getList().add(new Row());
+				}
+				getList().addAll(list);
+				fireTableDataChanged();
 			}
-			getList().addAll(list);
-			fireTableDataChanged();
 		});
 	}
 
@@ -500,12 +504,10 @@ public class FileTable extends JPanel {
 			sortKey = sortKeys.get(0);
 			comparator = comparators[sortKey.getColumn()];
 			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
-			
-			try {
+
+			synchronized (getList()) {
 				getList().sort(this);
 				fireSortOrderChanged();
-			} catch(Exception e) {
-				e.printStackTrace();
 			}
 		}
 

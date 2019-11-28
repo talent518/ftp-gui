@@ -585,6 +585,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private LinkedList<ProgressTable.Row> link = new LinkedList<ProgressTable.Row>();
 		private AtomicInteger nThread = new AtomicInteger(0);
 		private LinkedList<ProgressTable.Row> progresses = new LinkedList<ProgressTable.Row>();
+		private List<ProgressTable.Row> lock;
 		private Timer timer;
 
 		public void start() {
@@ -594,11 +595,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			println("Transfer start");
 			running.set(true);
 
+			lock = progressTable.getList();
 			timer = new Timer("transfer", true);
-			timer.schedule(new RefreshTask(), 100, 100);
+			timer.schedule(new RefreshTask(), 250, 250);
 
 			// pool.execute(new ProgressQueue(progressTable.getList()));
-			new ProgressQueue(progressTable.getList()).run();
+			synchronized (lock) {
+				addAll(progressTable.getList());
+			}
 		}
 
 		public void add(ProgressTable.Row row) {
@@ -710,22 +714,32 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						continue;
 
 					protocol.setProgressListener(new Listener(r));
-					r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+					synchronized (lock) {
+						r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+					}
 
 					if (r.isDirection()) {
 						println("uploading %1$s to %2$s for %3$s", r.getLocal(), r.getRemote(), r.getSite());
 						if (protocol.storeFile(r.getRemote(), r.getLocal())) {
 							println("uploaded %1$s to %2$s complete for %3$s", r.getLocal(), r.getRemote(), r.getSite());
-							r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+							}
 						} else {
 							println("upload %1$s to %2$s failure for %3$s: %4$s", r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
-							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							}
 						}
 					} else {
 						if (protocol.retrieveFile(r.getRemote(), r.getLocal())) {
-							r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+							}
 						} else {
-							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							}
 						}
 					}
 				}
@@ -757,15 +771,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								e.printStackTrace();
 							}
 						} else if ("DIR".equals(r.getType())) {
-							r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+							}
 							if (r.isDirection()) {
 								if (isSkip())
 									continue;
 								println("Making remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
 								if (protocol.mkdir(r.getRemote())) {
 									println("Maked remote directory by %1$s for %2$s site", r.getRemote(), r.getSite());
-									r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-									r.setWritten(r.getSize());
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+									}
 									f = new File(r.getLocal());
 									if (f.isDirectory()) {
 										File[] ls = f.listFiles();
@@ -793,26 +810,34 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									}
 								} else {
 									println("Make remote directory %1$s failure in %2$s site", r.getRemote(), r.getSite());
-									r.setStatus(ProgressTable.Row.STATUS_ERROR);
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+									}
 								}
 							} else {
 								f = new File(r.getLocal());
 								if (f.exists()) {
 									if (f.isDirectory()) {
-										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-										r.setWritten(r.getSize());
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+										}
 									} else {
-										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										}
 										println("%1$s is not a directory", r.getLocal());
 									}
 								} else {
 									try {
 										f.mkdir();
-										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-										r.setWritten(r.getSize());
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+										}
 										println("make local directory success by %1$s", r.getLocal());
 									} catch (Exception e) {
-										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										synchronized (lock) {
+											r.setStatus(ProgressTable.Row.STATUS_ERROR);
+										}
 										println("make local directory by %1$s failure: %2$s", r.getLocal(), e.getMessage());
 									}
 								}
@@ -845,7 +870,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								files.clear();
 							}
 						} else {
-							r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							synchronized (lock) {
+								r.setStatus(ProgressTable.Row.STATUS_ERROR);
+							}
 							println("%1$s Not support of type", r.getLocal());
 						}
 					}
@@ -869,27 +896,29 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		};
 
 		private class RefreshTask extends TimerTask {
+			private final int NTHREAD = settings.getNthreads();
+
 			@Override
 			public void run() {
 				if (!running.get() || (!diring.get() && queue.size() == 0)) {
 					running.set(false);
-					EventQueue.invokeLater(refreshRunnable);
+					pool.execute(refreshRunnable);
 					println("Transfer end");
-					
+
 					timer.cancel();
 					timer = null;
 				} else {
-					for (int i = nThread.get(); i < 5 && i < queue.size(); i++)
+					for (int i = nThread.get(); i < NTHREAD && i < queue.size(); i++)
 						new FileThread().start();
 
-					for (int i = queue.size(); i < 5; i++)
+					for (int i = queue.size(); i < NTHREAD; i++)
 						try {
 							queue.put(new ProgressTable.Row());
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
 
-					EventQueue.invokeLater(refreshRunnable);
+					pool.execute(refreshRunnable);
 				}
 			}
 
@@ -902,8 +931,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							list.add(progresses.removeFirst());
 					}
 
-					progressTable.getList().addAll(list);
-					progressTable.fireTableDataChanged();
+					synchronized (lock) {
+						progressTable.getList().addAll(list);
+						progressTable.fireTableDataChanged();
+					}
 				}
 			};
 		};

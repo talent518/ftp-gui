@@ -62,7 +62,7 @@ public class ProgressTable extends JPanel {
 		tableColumn = table.getColumnModel().getColumn(0);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(100);
-		
+
 		// local column(1)
 
 		// direction column(2)
@@ -70,7 +70,7 @@ public class ProgressTable extends JPanel {
 		tableColumn.setMinWidth(35);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("direction.size")));
 		tableColumn.setCellRenderer(new DirectionColumn());
-		
+
 		// remote column(3)
 
 		// type column(4)
@@ -78,7 +78,7 @@ public class ProgressTable extends JPanel {
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("type.size")));
 		tableColumn.setCellRenderer(new TypeColumn());
-		
+
 		// size column(5)
 		tableColumn = table.getColumnModel().getColumn(5);
 		tableColumn.setMinWidth(40);
@@ -116,7 +116,9 @@ public class ProgressTable extends JPanel {
 	}
 
 	public void clear() {
-		model.getList().clear();
+		synchronized (getList()) {
+			getList().clear();
+		}
 	}
 
 	public List<Row> getList() {
@@ -125,9 +127,11 @@ public class ProgressTable extends JPanel {
 
 	public void setList(List<Row> list) {
 		EventQueue.invokeLater(() -> {
-			getList().clear();
-			getList().addAll(list);
-			fireTableDataChanged();
+			synchronized (getList()) {
+				getList().clear();
+				getList().addAll(list);
+				fireTableDataChanged();
+			}
 		});
 	}
 
@@ -208,9 +212,11 @@ public class ProgressTable extends JPanel {
 			sortKey = sortKeys.get(0);
 			comparator = comparators[sortKey.getColumn()];
 			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
-			
-			getList().sort(this);
-			fireSortOrderChanged();
+
+			synchronized (getList()) {
+				getList().sort(this);
+				fireSortOrderChanged();
+			}
 		}
 
 		private SortKey toggle(SortKey key) {
@@ -318,7 +324,7 @@ public class ProgressTable extends JPanel {
 		public void rowsUpdated(int firstRow, int endRow, int column) {
 		}
 	}
-	
+
 	public class TypeColumn extends AbstractCellEditor implements TableCellRenderer {
 		private static final long serialVersionUID = 4160637907563033833L;
 
@@ -592,7 +598,7 @@ public class ProgressTable extends JPanel {
 		private long size;
 		private int progress;
 		private int status;
-		
+
 		private long written;
 
 		public Row() {
@@ -721,6 +727,8 @@ public class ProgressTable extends JPanel {
 
 		public void setStatus(int status) {
 			this.status = status;
+			if(status == STATUS_COMPLETED)
+				this.progress = 100;
 		}
 
 		public long getWritten() {
@@ -730,7 +738,7 @@ public class ProgressTable extends JPanel {
 		public void setWritten(long written) {
 			this.written = written;
 
-			if(this.written == this.size || this.size == 0)
+			if (this.written == this.size || this.size == 0)
 				this.progress = 100;
 			else
 				this.progress = (int) ((double) this.written / (double) this.size * 100.0f);
