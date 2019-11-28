@@ -18,8 +18,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -56,6 +54,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
@@ -66,6 +65,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 
 import org.apache.log4j.Logger;
 
@@ -149,12 +150,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final ProgressMenu progressMenu = new ProgressMenu();
 
 	private final JSplitPane lrSplit = new JSplitPane();
-	private final JSplitPane lvSplit = new JSplitPane();
-	private final JSplitPane rvSplit = new JSplitPane();
+	private final JSplitPane tbSplit = new JSplitPane();
 
 	private final FileTable remoteTable = new FileTable(language.getString("remote"));
 	private final FileTable localTable = new FileTable(language.getString("local"), true);
+
+	private final JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.BOTTOM);
 	private final ProgressTable progressTable = new ProgressTable();
+	private final ProgressTable processedTable = new ProgressTable();
 	private final JTextArea logText = new JTextArea();
 
 	private final JLabel leftStatus = new JLabel();
@@ -177,7 +180,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		setLocationRelativeTo(null);
 		setResizable(true);
 		setIconImage(icon.getImage());
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
 		content.setBorder(new EmptyBorder(0, 0, 0, 0));
 		content.setLayout(new BorderLayout(0, 0));
@@ -197,6 +200,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		progressTable.setListener(this);
 
 		localTable.setAddr(System.getProperty("user.home"));
+		progressTable.load("progress");
+		processedTable.load("processed");
 	}
 
 	public IProtocol getProtocol() {
@@ -310,69 +315,75 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			@Override
 			public void removeUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
 			}
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
 			}
 		});
 		logText.setEditable(false);
+
+		progressTable.getModel().addTableModelListener(new TableModelListener() {
+			@Override
+			public void tableChanged(TableModelEvent e) {
+				tabbedPane.setTitleAt(0, String.format(language.getString("tabbed.progress"), progressTable.getList().size()));
+			}
+		});
+		final JScrollBar processedScrollBar = processedTable.getScrollPane().getVerticalScrollBar();
+		processedTable.getModel().addTableModelListener(new TableModelListener() {
+			@Override
+			public void tableChanged(TableModelEvent e) {
+				processedScrollBar.setValue(processedScrollBar.getMaximum());
+				tabbedPane.setTitleAt(1, String.format(language.getString("tabbed.processed"), processedTable.getList().size()));
+			}
+		});
+		processedTable.getTable().addKeyListener(new KeyListener() {
+			@Override
+			public void keyTyped(KeyEvent e) {
+			}
+			
+			@Override
+			public void keyReleased(KeyEvent e) {
+			}
+			
+			@Override
+			public void keyPressed(KeyEvent e) {
+				if(e.getKeyCode() == KeyEvent.VK_DELETE) {
+					processedTable.clear(true);
+				}
+			}
+		});
+
+		tabbedPane.addTab(String.format(language.getString("tabbed.progress"), 0), progressTable);
+		tabbedPane.addTab(String.format(language.getString("tabbed.processed"), 0), processedTable);
+		tabbedPane.addTab(String.format(language.getString("tabbed.logging"), 0), scrollPane);
 
 		lrSplit.setOneTouchExpandable(true);
 		lrSplit.setContinuousLayout(true);
 		lrSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
 		lrSplit.setDividerLocation(0.5);
 		lrSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
+		lrSplit.setLeftComponent(remoteTable);
+		lrSplit.setRightComponent(localTable);
 
-		lvSplit.setOneTouchExpandable(true);
-		lvSplit.setContinuousLayout(true);
-		lvSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		lvSplit.setDividerLocation(300);
-		lvSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
-		lvSplit.setTopComponent(remoteTable);
-		lvSplit.setBottomComponent(progressTable);
+		tbSplit.setOneTouchExpandable(true);
+		tbSplit.setContinuousLayout(true);
+		tbSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
+		tbSplit.setDividerLocation(300);
+		tbSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
+		tbSplit.setTopComponent(lrSplit);
+		tbSplit.setBottomComponent(tabbedPane);
 
-		rvSplit.setOneTouchExpandable(true);
-		rvSplit.setContinuousLayout(true);
-		rvSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		rvSplit.setDividerLocation(0.5);
-		rvSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
-		rvSplit.setTopComponent(localTable);
-		rvSplit.setBottomComponent(scrollPane);
-
-		lrSplit.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, new PropertyChangeListener() {
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				// System.out.println("LR: " + lrSplit.getDividerLocation());
-			}
-		});
-
-		lvSplit.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, new PropertyChangeListener() {
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				// System.out.println("LV: " + lvSplit.getDividerLocation());
-				rvSplit.setDividerLocation(lvSplit.getDividerLocation());
-			}
-		});
-
-		rvSplit.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, new PropertyChangeListener() {
-			@Override
-			public void propertyChange(PropertyChangeEvent evt) {
-				// System.out.println("RV: " + rvSplit.getDividerLocation());
-				lvSplit.setDividerLocation(rvSplit.getDividerLocation());
-			}
-		});
-
-		lrSplit.setLeftComponent(lvSplit);
-		lrSplit.setRightComponent(rvSplit);
-
-		content.add(lrSplit, BorderLayout.CENTER);
+		content.add(tbSplit, BorderLayout.CENTER);
 	}
 
 	private void initStatusBar() {
@@ -434,11 +445,20 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		progressMenu.add(new MenuItem("progress.cleanError", KeyEvent.VK_E, MenuItem.KEY_CLEAN_ERROR));
 	}
 
+	private void closeWindow() {
+		if (transfer.isRunning()) {
+			transfer.stop(true);
+		} else {
+			progressTable.save("progress");
+			processedTable.save("processed");
+			System.exit(0);
+		}
+	}
+
 	@Override
 	public void componentResized(ComponentEvent e) {
 		lrSplit.setDividerLocation(DIVIDER);
-		lvSplit.setDividerLocation(DIVIDER);
-		rvSplit.setDividerLocation(DIVIDER);
+		tbSplit.setDividerLocation(DIVIDER);
 	}
 
 	@Override
@@ -465,6 +485,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	@Override
 	public void windowClosing(WindowEvent e) {
 		log.debug(e);
+		closeWindow();
 	}
 
 	@Override
@@ -652,6 +673,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private LinkedList<ProgressTable.Row> progresses = new LinkedList<ProgressTable.Row>();
 		private List<ProgressTable.Row> lock;
 		private Timer timer;
+		private AtomicBoolean closed = new AtomicBoolean(false);
 
 		public void start() {
 			if (isRunning())
@@ -686,7 +708,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		public void stop() {
+			stop(false);
+		}
+
+		public void stop(boolean b) {
 			running.set(false);
+			closed.set(b);
 		}
 
 		public void add(ProgressTable.Row row) {
@@ -1012,6 +1039,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		private class RefreshTask extends TimerTask {
 			private final int NTHREAD = settings.getNthreads();
+			private final Predicate<ProgressTable.Row> filter = new Predicate<ProgressTable.Row>() {
+				@Override
+				public boolean test(ProgressTable.Row t) {
+					if (t.getStatus() == ProgressTable.Row.STATUS_COMPLETED || t.getStatus() == ProgressTable.Row.STATUS_ERROR) {
+						processedTable.getList().add(t);
+						return true;
+					} else {
+						return false;
+					}
+				}
+			};
 
 			@Override
 			public void run() {
@@ -1044,25 +1082,28 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					timer = null;
 				}
 
-				pool.execute(refreshRunnable);
-			}
-
-			private Runnable refreshRunnable = new Runnable() {
-				@Override
-				public void run() {
-					final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
-					synchronized (progresses) {
-						while (!progresses.isEmpty())
-							list.add(progresses.removeFirst());
-					}
-
-					synchronized (lock) {
-						progressTable.getList().addAll(list);
-					}
-					rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
-					progressTable.fireTableDataChanged();
+				final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+				synchronized (progresses) {
+					while (!progresses.isEmpty())
+						list.add(progresses.removeFirst());
 				}
-			};
+
+				synchronized (lock) {
+					progressTable.getList().addAll(list);
+					synchronized (processedTable.getList()) {
+						progressTable.getList().removeIf(filter);
+					}
+				}
+				
+				rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
+				progressTable.fireTableDataChanged();
+				processedTable.fireTableDataChanged();
+				if (timer == null && closed.get()) {
+					progressTable.save("progress");
+					processedTable.save("processed");
+					System.exit(0);
+				}
+			}
 		}
 	}
 
@@ -1239,7 +1280,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_PREF:
 					break;
 				case KEY_QUIT:
-					MainFrame.this.dispose();
+					closeWindow();
 					break;
 				case KEY_MANAGE:
 					break;

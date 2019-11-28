@@ -7,6 +7,10 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -33,12 +37,16 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
+import org.apache.log4j.Logger;
+
+import com.google.gson.reflect.TypeToken;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.util.FileUtils;
 import com.talent518.ftp.util.PinyinUtil;
 
 public class ProgressTable extends JPanel {
 	private static final long serialVersionUID = -1789896671155598722L;
+	private static final Logger log = Logger.getLogger(ProgressTable.class);
 
 	private static final Icon leftIcon = new ImageIcon(ProgressTable.class.getResource("/icons/left.png"));
 	private static final Icon rightIcon = new ImageIcon(ProgressTable.class.getResource("/icons/right.png"));
@@ -48,12 +56,14 @@ public class ProgressTable extends JPanel {
 	private JTable table;
 	private Model model;
 	private TableRowSorter rowSorter;
+	private JScrollPane scrollPane;
 	private Listener listener = null;
 
 	public ProgressTable() {
 		model = new Model();
 		table = new JTable(model);
 		rowSorter = new TableRowSorter();
+		scrollPane = new JScrollPane(table);
 
 		table.setRowSorter(rowSorter);
 		table.setRowHeight(30);
@@ -131,7 +141,7 @@ public class ProgressTable extends JPanel {
 		setBorder(BorderFactory.createEmptyBorder());
 		setLayout(new BorderLayout(0, 0));
 		add(table.getTableHeader(), BorderLayout.NORTH);
-		add(new JScrollPane(table), BorderLayout.CENTER);
+		add(scrollPane, BorderLayout.CENTER);
 	}
 
 	public JTable getTable() {
@@ -141,13 +151,71 @@ public class ProgressTable extends JPanel {
 	public Model getModel() {
 		return model;
 	}
-	
+
+	public JScrollPane getScrollPane() {
+		return scrollPane;
+	}
+
 	public void setListener(Listener l) {
 		listener = l;
 	}
 
 	public void fireTableDataChanged() {
 		model.fireTableDataChanged();
+	}
+
+	public void load(String name) {
+		load(new File(Settings.ROOT_PATH + File.separator + name + ".json"));
+	}
+
+	public void load(File f) {
+		FileReader reader = null;
+		try {
+			reader = new FileReader(f);
+			List<Row> list = Settings.gson().fromJson(reader, new TypeToken<List<Row>>() {
+			}.getType());
+			if (list != null)
+				setList(list);
+			log.info("Load " + f.getName() + " success");
+		} catch (Throwable t) {
+			log.error("Load " + f.getName() + " failure", t);
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (Throwable t) {
+					log.error("Close " + f.getName() + " reader failure", t);
+				}
+			}
+		}
+	}
+
+	public void save(String name) {
+		save(new File(Settings.ROOT_PATH + File.separator + name + ".json"));
+	}
+
+	public void save(File f) {
+		FileWriter writer = null;
+		try {
+			File path = f.getParentFile();
+			if (!path.isDirectory()) {
+				path.mkdir();
+			}
+			writer = new FileWriter(f);
+			writer.write(Settings.gson().toJson(getList()));
+			writer.flush();
+			log.info("Save " + f.getName() + " success");
+		} catch (Throwable t) {
+			log.error("Save " + f.getName() + " failure", t);
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException t) {
+					log.error("Close " + f.getName() + " writer failure", t);
+				}
+			}
+		}
 	}
 
 	public void clear() {

@@ -18,7 +18,7 @@ import com.google.gson.GsonBuilder;
 
 public class Settings {
 	private static Logger log = Logger.getLogger(Settings.class);
-	private static final String ROOT_PATH = System.getProperty("user.home") + File.separator + ".ftp-gui";
+	public static final String ROOT_PATH = System.getProperty("user.home") + File.separator + ".ftp-gui";
 	private static final String SETTINGS_FILE = ROOT_PATH + File.separator + "settings.json";
 	public static final String LOG_PATH = ROOT_PATH + File.separator + "logs" + File.separator;
 	private static Settings _instance;
@@ -88,6 +88,7 @@ public class Settings {
 			}
 			writer = new FileWriter(new File(SETTINGS_FILE));
 			writer.write(toString());
+			writer.flush();
 			log.info("Save settings success");
 		} catch (Throwable t) {
 			log.error("Save settings failure", t);
