@@ -155,7 +155,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final FileTable remoteTable = new FileTable(language.getString("remote"));
 	private final FileTable localTable = new FileTable(language.getString("local"), true);
 
-	private final JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.BOTTOM);
+	private final JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.BOTTOM, JTabbedPane.WRAP_TAB_LAYOUT);
 	private final ProgressTable progressTable = new ProgressTable();
 	private final ProgressTable processedTable = new ProgressTable();
 	private final JTextArea logText = new JTextArea();
@@ -350,14 +350,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			@Override
 			public void keyTyped(KeyEvent e) {
 			}
-			
+
 			@Override
 			public void keyReleased(KeyEvent e) {
 			}
-			
+
 			@Override
 			public void keyPressed(KeyEvent e) {
-				if(e.getKeyCode() == KeyEvent.VK_DELETE) {
+				if (e.getKeyCode() == KeyEvent.VK_DELETE) {
 					processedTable.clear(true);
 				}
 			}
@@ -562,6 +562,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.localEntererr"), addr);
 				}
 			} else {
+				if (!protocol.isConnected() && protocol.isLogined()) {
+					protocol.logout();
+					println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					if (protocol.login())
+						println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+				}
 				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
 				if (protocol.ls(addr, list)) {
 					if (remoteTable.getAddr().equals(old)) {
@@ -661,7 +667,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public class Transfer {
 		private AtomicBoolean running = new AtomicBoolean(false);
 		private AtomicBoolean diring = new AtomicBoolean(false);
-		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(1000);
+		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(1000000);
 		private LinkedList<ProgressTable.Row> link = new LinkedList<ProgressTable.Row>();
 		private AtomicInteger nThread = new AtomicInteger(0);
 		private AtomicInteger nReady = new AtomicInteger(0);
@@ -902,12 +908,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							if (r.isDirection()) {
 								if (isSkip()) {
 									nRunning.decrementAndGet();
+									nSkip.incrementAndGet();
 									continue;
 								}
 								println(language.getString("log.mkdiring"), r.getRemote(), r.getSite());
 								if (protocol.mkdir(r.getRemote())) {
-									println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
-
 									f = new File(r.getLocal());
 									if (f.isDirectory()) {
 										File[] ls = f.listFiles();
@@ -930,16 +935,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 												}
 											}
 										}
+										
+										println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
 										}
 										nCompleted.incrementAndGet();
 									} else {
+										println(language.getString("log.localDirList"), r.getLocal());
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
 										nError.incrementAndGet();
-										println(language.getString("log.localDirList"), r.getLocal());
 									}
 								} else {
 									println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
@@ -952,11 +959,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								f = new File(r.getLocal());
 								if (f.exists()) {
 									if (!f.isDirectory()) {
+										println(language.getString("log.notLocalDir"), r.getLocal());
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
 										nError.incrementAndGet();
-										println(language.getString("log.notLocalDir"), r.getLocal());
+										nRunning.decrementAndGet();
 										continue;
 									}
 								} else {
@@ -964,27 +972,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										f.mkdir();
 										println(language.getString("log.lmkdired"), r.getLocal());
 									} catch (Exception e) {
+										println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_ERROR);
 										}
 										nError.incrementAndGet();
-										println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
+										nRunning.decrementAndGet();
 										continue;
 									}
 								}
 
 								if (isSkip()) {
 									nRunning.decrementAndGet();
+									nSkip.incrementAndGet();
 									continue;
 								}
 
 								println(language.getString("log.dirlisting"), r.getRemote(), r.getSite());
 								if (protocol.ls(r.getRemote(), files)) {
-									synchronized (lock) {
-										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-									}
-									nCompleted.incrementAndGet();
-									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
 									for (FileTable.Row r2 : files) {
 										p = new ProgressTable.Row();
 										p.setSite(r.getSite());
@@ -1001,19 +1006,27 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 											link.add(p);
 										}
 									}
+									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+									}
+									nCompleted.incrementAndGet();
 								} else {
-									nError.incrementAndGet();
 									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+									}
+									nError.incrementAndGet();
 								}
 								files.clear();
 							}
 							nRunning.decrementAndGet();
 						} else {
+							println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
 							}
 							nError.incrementAndGet();
-							println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
 						}
 					} else {
 						nSkip.incrementAndGet();
@@ -1089,15 +1102,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 
 				synchronized (lock) {
-					progressTable.getList().addAll(list);
 					synchronized (processedTable.getList()) {
+						list.removeIf(filter);
 						progressTable.getList().removeIf(filter);
+						processedTable.fireTableDataChanged();
 					}
+					progressTable.getList().addAll(list);
+					progressTable.fireTableDataChanged();
 				}
-				
+
 				rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
-				progressTable.fireTableDataChanged();
-				processedTable.fireTableDataChanged();
 				if (timer == null && closed.get()) {
 					progressTable.save("progress");
 					processedTable.save("processed");
@@ -1405,8 +1419,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			synchronized (progressTable.getList()) {
 				progressTable.getList().add(progress);
+				progressTable.fireTableDataChanged();
 			}
-			progressTable.fireTableDataChanged();
 			transfer.add(progress);
 
 			if (isStart) {
@@ -1422,8 +1436,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						return t.getStatus() == status;
 					}
 				});
+				progressTable.fireTableDataChanged();
 			}
-			progressTable.fireTableDataChanged();
 		}
 	}
 

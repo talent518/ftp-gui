@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -175,7 +174,7 @@ public class FileTable extends JPanel {
 			public void valueChanged(ListSelectionEvent e) {
 				if (listener != null) {
 					try {
-						listener.selectedRow(isLocal, table.getSelectedRow(), getList().get(table.getSelectedRow()));
+						listener.selectedRow(isLocal, table.getSelectedRow(), model.getList().get(table.getSelectedRow()));
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
 				}
@@ -186,13 +185,13 @@ public class FileTable extends JPanel {
 			public void mouseClicked(MouseEvent e) {
 				if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1 && listener != null) {
 					try {
-						listener.doubleClicked(isLocal, table.getSelectedRow(), getList().get(table.getSelectedRow()));
+						listener.doubleClicked(isLocal, table.getSelectedRow(), model.getList().get(table.getSelectedRow()));
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
 				} else if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
 					int i = table.rowAtPoint(e.getPoint());
 					table.addRowSelectionInterval(i, i);
-					listener.rightClicked(isLocal, i, i >= 0 && i < getList().size() ? getList().get(table.getSelectedRow()) : null, e);
+					listener.rightClicked(isLocal, i, i >= 0 && i < model.getList().size() ? model.getList().get(table.getSelectedRow()) : null, e);
 				}
 			}
 		});
@@ -367,31 +366,15 @@ public class FileTable extends JPanel {
 		listener = l;
 	}
 
-	public void fireTableDataChanged() {
-		model.fireTableDataChanged();
-	}
-
-	public void clear() {
-		synchronized (getList()) {
-			getList().clear();
-		}
-	}
-
-	public List<Row> getList() {
-		return model.getList();
-	}
-
 	public void setList(List<Row> list) {
-		EventQueue.invokeLater(() -> {
-			synchronized (getList()) {
-				getList().clear();
-				if ((isLocal && getAddr().length() > 1) || (!isLocal && !"/".equals(getAddr()))) {
-					getList().add(new Row());
-				}
-				getList().addAll(list);
-				fireTableDataChanged();
+		synchronized (model.getList()) {
+			model.getList().clear();
+			if ((isLocal && getAddr().length() > 1) || (!isLocal && !"/".equals(getAddr()))) {
+				model.getList().add(new Row());
 			}
-		});
+			model.getList().addAll(list);
+			model.fireTableDataChanged();
+		}
 	}
 
 	private static final Comparator<Row> nameComparator = new Comparator<Row>() {
@@ -505,8 +488,8 @@ public class FileTable extends JPanel {
 			comparator = comparators[sortKey.getColumn()];
 			nSort = sortKey.getSortOrder().equals(SortOrder.DESCENDING) ? -1 : 1;
 
-			synchronized (getList()) {
-				getList().sort(this);
+			synchronized (model.getList()) {
+				model.getList().sort(this);
 				fireSortOrderChanged();
 			}
 		}
@@ -656,7 +639,7 @@ public class FileTable extends JPanel {
 
 		@Override
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			Row r = getList().get(row);
+			Row r = model.getList().get(row);
 
 			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
 

@@ -29,6 +29,8 @@ public class FTP extends IProtocol {
 	private final FTPClient ftp;
 	private int keepAliveTimeout = -1;
 	private int controlKeepAliveReplyTimeout = -1;
+	private int defaultTimeout = 30000;
+	private int dataTimeout = -1;
 	private final CopyStreamListener copyStreamListener = new CopyStreamListener() {
 		@Override
 		public void bytesTransferred(CopyStreamEvent event) {
@@ -74,6 +76,12 @@ public class FTP extends IProtocol {
 		if (controlKeepAliveReplyTimeout >= 0) {
 			ftp.setControlKeepAliveReplyTimeout(controlKeepAliveReplyTimeout);
 		}
+		if (defaultTimeout >= 0) {
+			ftp.setDefaultTimeout(defaultTimeout);
+		}
+		if (dataTimeout >= 0) {
+			ftp.setDataTimeout(dataTimeout);
+		}
 		if (s.getEncoding() != null) {
 			ftp.setControlEncoding(s.getEncoding());
 		}
@@ -101,15 +109,17 @@ public class FTP extends IProtocol {
 				config.setServerTimeZoneId(site.getServerTimeZoneId());
 			}
 		}
-		
+
 		ftp.configure(config);
 	}
 
 	public boolean isConnected() {
-		return ftp.isConnected();
+		return ftp.isConnected() && error == null;
 	}
 
 	public boolean login() {
+		error = null;
+		
 		try {
 			if (site.getPort() > 0) {
 				ftp.connect(site.getHost(), site.getPort());
@@ -143,7 +153,7 @@ public class FTP extends IProtocol {
 			}
 
 			ftp.setUseEPSVwithIPv4(site.isUseEpsvWithIPv4());
-			
+
 			setLogined(true);
 
 			return true;
@@ -163,6 +173,8 @@ public class FTP extends IProtocol {
 	}
 
 	public String pwd() {
+		error = null;
+		
 		try {
 			return ftp.printWorkingDirectory();
 		} catch (IOException e) {
@@ -173,6 +185,8 @@ public class FTP extends IProtocol {
 	}
 
 	public boolean ls(String remote, List<FileTable.Row> rows) {
+		error = null;
+		
 		try {
 			FTPFile[] files;
 			if (site.isMlsd()) {
@@ -198,6 +212,8 @@ public class FTP extends IProtocol {
 
 	@Override
 	public boolean mkdir(String remote) {
+		error = null;
+		
 		try {
 			return ftp.makeDirectory(remote);
 		} catch (IOException e) {
@@ -209,6 +225,8 @@ public class FTP extends IProtocol {
 
 	@Override
 	public boolean rmdir(String remote) {
+		error = null;
+		
 		try {
 			return ftp.removeDirectory(remote);
 		} catch (IOException e) {
@@ -220,6 +238,8 @@ public class FTP extends IProtocol {
 
 	@Override
 	public boolean unlink(String remote) {
+		error = null;
+		
 		try {
 			return ftp.deleteFile(remote);
 		} catch (IOException e) {
@@ -231,6 +251,7 @@ public class FTP extends IProtocol {
 
 	public boolean storeFile(String remote, String local) {
 		InputStream input = null;
+		error = null;
 
 		try {
 			input = new FileInputStream(local);
@@ -256,6 +277,7 @@ public class FTP extends IProtocol {
 
 	public boolean retrieveFile(String remote, String local) {
 		OutputStream output = null;
+		error = null;
 
 		try {
 			output = new FileOutputStream(local);
@@ -280,6 +302,8 @@ public class FTP extends IProtocol {
 	}
 
 	public boolean logout() {
+		error = null;
+		
 		try {
 			ftp.noop();
 

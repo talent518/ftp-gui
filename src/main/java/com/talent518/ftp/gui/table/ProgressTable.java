@@ -227,9 +227,9 @@ public class ProgressTable extends JPanel {
 	public void clear(boolean changed) {
 		synchronized (getList()) {
 			getList().clear();
+			if (changed)
+				fireTableDataChanged();
 		}
-		if (changed)
-			fireTableDataChanged();
 	}
 
 	public List<Row> getList() {
@@ -326,8 +326,8 @@ public class ProgressTable extends JPanel {
 
 			synchronized (getList()) {
 				getList().sort(this);
+				fireSortOrderChanged();
 			}
-			fireSortOrderChanged();
 		}
 
 		private SortKey toggle(SortKey key) {
@@ -646,8 +646,18 @@ public class ProgressTable extends JPanel {
 		// @formatter:on
 		private List<Row> list = new ArrayList<Row>();
 		private final int N = 0;
+		private Row err = new Row();
 
 		public Model() {
+			err.setSite("default");
+			err.setLocal("/home/abao");
+			err.setDirection(Math.random() <= 0.5f);
+			err.setType(Math.random() <= 0.5f ? "DIR" : "REG");
+			err.setRemote("/home/abao");
+			err.setProgress((int) (Math.random() * 101));
+			err.setSize((long) (Math.random() * 100000000));
+			err.setStatus((int) (Math.random() * 4));
+			
 			for (int i = 0; i < N; i++) {
 				Row r = new Row();
 				r.setSite("default");
@@ -688,7 +698,12 @@ public class ProgressTable extends JPanel {
 
 		@Override
 		public Object getValueAt(int r, int c) {
-			return list.get(r).get(c);
+			try {
+				return list.get(r).get(c);
+			} catch(IndexOutOfBoundsException e) {
+				log.error("progress table getValueAt error", e);
+				return err.get(c);
+			}
 		}
 
 		@Override
@@ -698,8 +713,12 @@ public class ProgressTable extends JPanel {
 
 		@Override
 		public void setValueAt(Object value, int r, int c) {
-			list.get(r).set(c, value);
-			fireTableCellUpdated(r, c);
+			try {
+				list.get(r).set(c, value);
+				fireTableCellUpdated(r, c);
+			} catch(IndexOutOfBoundsException e) {
+				log.error("progress table setValueAt error", e);
+			}
 		}
 	}
 
