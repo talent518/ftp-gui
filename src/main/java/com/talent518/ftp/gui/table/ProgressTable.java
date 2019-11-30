@@ -1,9 +1,6 @@
 package com.talent518.ftp.gui.table;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -14,42 +11,36 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.EventObject;
 import java.util.List;
 import java.util.ResourceBundle;
 
-import javax.swing.AbstractCellEditor;
 import javax.swing.BorderFactory;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowSorter;
 import javax.swing.SortOrder;
-import javax.swing.SwingConstants;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
 import org.apache.log4j.Logger;
 
 import com.google.gson.reflect.TypeToken;
 import com.talent518.ftp.dao.Settings;
-import com.talent518.ftp.util.FileUtils;
+import com.talent518.ftp.gui.table.column.DirectionColumn;
+import com.talent518.ftp.gui.table.column.ProgressColumn;
+import com.talent518.ftp.gui.table.column.SizeColumn;
+import com.talent518.ftp.gui.table.column.StatusColumn;
+import com.talent518.ftp.gui.table.column.StringColumn;
+import com.talent518.ftp.gui.table.column.TypeColumn;
 import com.talent518.ftp.util.PinyinUtil;
 
 public class ProgressTable extends JPanel {
 	private static final long serialVersionUID = -1789896671155598722L;
 	private static final Logger log = Logger.getLogger(ProgressTable.class);
-
-	private static final Icon leftIcon = new ImageIcon(ProgressTable.class.getResource("/icons/left.png"));
-	private static final Icon rightIcon = new ImageIcon(ProgressTable.class.getResource("/icons/right.png"));
 
 	private final ResourceBundle language = Settings.language();
 
@@ -58,8 +49,11 @@ public class ProgressTable extends JPanel {
 	private TableRowSorter rowSorter;
 	private JScrollPane scrollPane;
 	private Listener listener = null;
+	private boolean isProgress;
 
-	public ProgressTable() {
+	public ProgressTable(boolean isProgress) {
+		this.isProgress = isProgress;
+		
 		model = new Model();
 		table = new JTable(model);
 		rowSorter = new TableRowSorter();
@@ -75,7 +69,7 @@ public class ProgressTable extends JPanel {
 			public void valueChanged(ListSelectionEvent e) {
 				if (listener != null) {
 					try {
-						listener.selectedRow(table.getSelectedRow(), getList().get(table.getSelectedRow()));
+						listener.selectedRow(isProgress, table.getSelectedRow(), table.getSelectedRow() >= 0 ? getList().get(table.getSelectedRow()) : null);
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
 				}
@@ -86,13 +80,13 @@ public class ProgressTable extends JPanel {
 			public void mouseClicked(MouseEvent e) {
 				if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1 && listener != null) {
 					try {
-						listener.doubleClicked(table.getSelectedRow(), getList().get(table.getSelectedRow()));
+						listener.doubleClicked(isProgress, table.getSelectedRow(), table.getSelectedRow() >=0 ? getList().get(table.getSelectedRow()) : null);
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
 				} else if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
 					int i = table.rowAtPoint(e.getPoint());
 					table.addRowSelectionInterval(i, i);
-					listener.rightClicked(i, i >= 0 && i < getList().size() ? getList().get(table.getSelectedRow()) : null, e);
+					listener.rightClicked(isProgress, i, i >= 0 && i < getList().size() ? getList().get(table.getSelectedRow()) : null, e);
 				}
 			}
 		});
@@ -103,8 +97,11 @@ public class ProgressTable extends JPanel {
 		tableColumn = table.getColumnModel().getColumn(0);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(100);
+		tableColumn.setCellRenderer(new StringColumn());
 
 		// local column(1)
+		tableColumn = table.getColumnModel().getColumn(1);
+		tableColumn.setCellRenderer(new StringColumn());
 
 		// direction column(2)
 		tableColumn = table.getColumnModel().getColumn(2);
@@ -113,6 +110,8 @@ public class ProgressTable extends JPanel {
 		tableColumn.setCellRenderer(new DirectionColumn());
 
 		// remote column(3)
+		tableColumn = table.getColumnModel().getColumn(3);
+		tableColumn.setCellRenderer(new StringColumn());
 
 		// type column(4)
 		tableColumn = table.getColumnModel().getColumn(4);
@@ -142,6 +141,14 @@ public class ProgressTable extends JPanel {
 		setLayout(new BorderLayout(0, 0));
 		add(table.getTableHeader(), BorderLayout.NORTH);
 		add(scrollPane, BorderLayout.CENTER);
+		scrollPane.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
+					listener.rightClicked(isProgress, -1, null, e);
+				}
+			}
+		});
 	}
 
 	public JTable getTable() {
@@ -161,7 +168,13 @@ public class ProgressTable extends JPanel {
 	}
 
 	public void fireTableDataChanged() {
-		model.fireTableDataChanged();
+		EventQueue.invokeLater(() -> {
+			model.fireTableDataChanged();
+		});
+	}
+	
+	public void load() {
+		load(isProgress ? "progress" : "processed");
 	}
 
 	public void load(String name) {
@@ -190,6 +203,10 @@ public class ProgressTable extends JPanel {
 		}
 	}
 
+	public void save() {
+		save(isProgress ? "progress" : "processed");
+	}
+	
 	public void save(String name) {
 		save(new File(Settings.ROOT_PATH + File.separator + name + ".json"));
 	}
@@ -227,9 +244,9 @@ public class ProgressTable extends JPanel {
 	public void clear(boolean changed) {
 		synchronized (getList()) {
 			getList().clear();
-			if (changed)
-				fireTableDataChanged();
 		}
+		if (changed)
+			fireTableDataChanged();
 	}
 
 	public List<Row> getList() {
@@ -242,7 +259,7 @@ public class ProgressTable extends JPanel {
 				getList().clear();
 				getList().addAll(list);
 			}
-			fireTableDataChanged();
+			model.fireTableDataChanged();
 		});
 	}
 
@@ -437,201 +454,17 @@ public class ProgressTable extends JPanel {
 	}
 
 	public interface Listener {
-		public void rightClicked(int i, Row r, MouseEvent e);
+		public void rightClicked(boolean isProgress, int i, Row r, MouseEvent e);
 
-		public void selectedRow(int i, Row r);
+		public void selectedRow(boolean isProgress, int i, Row r);
 
-		public void doubleClicked(int i, Row r);
-	}
-
-	public class TypeColumn extends AbstractCellEditor implements TableCellRenderer {
-		private static final long serialVersionUID = 4160637907563033833L;
-
-		private final Color transparent = new Color(0, 0, 0, 0);
-		private final JPanel panel;
-		private final JLabel type;
-
-		public TypeColumn() {
-			super();
-
-			type = new JLabel();
-
-			panel = new JPanel();
-			panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
-			panel.setLayout(new BorderLayout(0, 0));
-			panel.add(type, BorderLayout.CENTER);
-		}
-
-		@Override
-		public boolean shouldSelectCell(EventObject anEvent) {
-			return super.shouldSelectCell(anEvent);
-		}
-
-		@Override
-		public Object getCellEditorValue() {
-			return type.getText();
-		}
-
-		@Override
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
-			type.setForeground(isSelected ? getTable().getSelectionForeground() : getTable().getForeground());
-			type.setText(language.getString("type." + value));
-			return panel;
-		}
-	}
-
-	public class DirectionColumn extends AbstractCellEditor implements TableCellRenderer {
-		private static final long serialVersionUID = 1269871617755922105L;
-
-		private final Color transparent = new Color(0, 0, 0, 0);
-		private final JPanel panel;
-		private JLabel direction;
-		private boolean directVal;
-
-		public DirectionColumn() {
-			super();
-
-			direction = new JLabel();
-			direction.setPreferredSize(new Dimension(30, 30));
-			direction.setHorizontalAlignment(SwingConstants.CENTER);
-			direction.setVerticalAlignment(SwingConstants.CENTER);
-
-			panel = new JPanel();
-			panel.setBorder(BorderFactory.createEmptyBorder());
-			panel.setLayout(new BorderLayout(0, 0));
-			panel.add(direction, BorderLayout.CENTER);
-		}
-
-		@Override
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			directVal = (boolean) value;
-			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
-			direction.setIcon(directVal ? rightIcon : leftIcon);
-			return panel;
-		}
-
-		@Override
-		public Object getCellEditorValue() {
-			return directVal;
-		}
-	}
-
-	public class ProgressColumn extends AbstractCellEditor implements TableCellRenderer {
-		private static final long serialVersionUID = 1269871617755922105L;
-
-		private JProgressBar progressBar;
-
-		public ProgressColumn() {
-			super();
-
-			progressBar = new JProgressBar();
-			progressBar.setMaximum(100);
-			progressBar.setBackground(getTable().getSelectionBackground());
-			progressBar.setForeground(getTable().getSelectionForeground());
-			progressBar.setStringPainted(true);
-			progressBar.setBorderPainted(false);
-		}
-
-		@Override
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			progressBar.setValue(Integer.parseInt(value.toString()));
-			return progressBar;
-		}
-
-		@Override
-		public Object getCellEditorValue() {
-			return progressBar.getValue();
-		}
-	}
-
-	public class SizeColumn extends AbstractCellEditor implements TableCellRenderer {
-		private static final long serialVersionUID = 4160637907563033833L;
-
-		private final Color transparent = new Color(0, 0, 0, 0);
-		private final JPanel panel;
-		private final JLabel size;
-
-		public SizeColumn() {
-			super();
-
-			size = new JLabel();
-
-			panel = new JPanel();
-			panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
-			panel.setLayout(new BorderLayout(0, 0));
-			panel.add(size, BorderLayout.CENTER);
-		}
-
-		@Override
-		public boolean shouldSelectCell(EventObject anEvent) {
-			return super.shouldSelectCell(anEvent);
-		}
-
-		@Override
-		public Object getCellEditorValue() {
-			return size.getText();
-		}
-
-		@Override
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
-			size.setForeground(isSelected ? getTable().getSelectionForeground() : getTable().getForeground());
-			size.setText(FileUtils.formatSize((long) value));
-			return panel;
-		}
-	}
-
-	public class StatusColumn extends AbstractCellEditor implements TableCellRenderer {
-		private static final long serialVersionUID = 4160637907563033833L;
-
-		private final Color transparent = new Color(0, 0, 0, 0);
-		// @formatter:off
-		private final String[] statusTexts = {
-			language.getString("status.running"),
-			language.getString("status.ready"),
-			language.getString("status.completed"),
-			language.getString("status.error")
-		};
-		// @formatter:on
-		private final Color[] colors = { new Color(0x999999), new Color(0x333333), new Color(0x339933), new Color(0xcc3300) };
-		private final JPanel panel;
-		private final JLabel status;
-
-		public StatusColumn() {
-			super();
-
-			status = new JLabel();
-
-			panel = new JPanel();
-			panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
-			panel.setLayout(new BorderLayout(0, 0));
-			panel.add(status, BorderLayout.CENTER);
-		}
-
-		@Override
-		public boolean shouldSelectCell(EventObject anEvent) {
-			return super.shouldSelectCell(anEvent);
-		}
-
-		@Override
-		public Object getCellEditorValue() {
-			return status.getText();
-		}
-
-		@Override
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			panel.setBackground(isSelected ? getTable().getSelectionBackground() : transparent);
-			status.setForeground(isSelected ? getTable().getSelectionForeground() : colors[(int) value]);
-			status.setText(statusTexts[(int) value]);
-			return panel;
-		}
+		public void doubleClicked(boolean isProgress, int i, Row r);
 	}
 
 	public class Model extends AbstractTableModel {
 		private static final long serialVersionUID = -1994280421860518219L;
 
-		private Class<?>[] cellType = { String.class, String.class, Boolean.class, String.class, Integer.class, Long.class, Integer.class };
+		private Class<?>[] cellType = { String.class, String.class, Boolean.class, String.class, String.class, Long.class, Integer.class, Integer.class };
 		// @formatter:off
 		private String title[] = {
 			language.getString("progressTable.site"),
@@ -657,7 +490,7 @@ public class ProgressTable extends JPanel {
 			err.setProgress((int) (Math.random() * 101));
 			err.setSize((long) (Math.random() * 100000000));
 			err.setStatus((int) (Math.random() * 4));
-			
+
 			for (int i = 0; i < N; i++) {
 				Row r = new Row();
 				r.setSite("default");
@@ -700,7 +533,7 @@ public class ProgressTable extends JPanel {
 		public Object getValueAt(int r, int c) {
 			try {
 				return list.get(r).get(c);
-			} catch(IndexOutOfBoundsException e) {
+			} catch (IndexOutOfBoundsException e) {
 				log.error("progress table getValueAt error", e);
 				return err.get(c);
 			}
@@ -716,7 +549,7 @@ public class ProgressTable extends JPanel {
 			try {
 				list.get(r).set(c, value);
 				fireTableCellUpdated(r, c);
-			} catch(IndexOutOfBoundsException e) {
+			} catch (IndexOutOfBoundsException e) {
 				log.error("progress table setValueAt error", e);
 			}
 		}

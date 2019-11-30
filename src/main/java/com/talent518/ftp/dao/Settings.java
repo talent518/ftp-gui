@@ -113,6 +113,7 @@ public class Settings {
 
 	private Map<String, Site> sites = new HashMap<String, Site>();
 	private List<String> siteNames = new ArrayList<String>();
+	private String skin = "skin.autumn";
 
 	public Locale getLocale() {
 		if (locale == null) {
@@ -169,5 +170,13 @@ public class Settings {
 
 	public List<String> getSiteNames() {
 		return siteNames;
+	}
+
+	public String getSkin() {
+		return skin;
+	}
+
+	public void setSkin(String skin) {
+		this.skin = skin;
 	}
 }

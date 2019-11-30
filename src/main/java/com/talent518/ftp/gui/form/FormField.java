@@ -72,7 +72,7 @@ public class FormField extends JPanel {
 		validators = new Validator[clazzs.length];
 		for (int i = 0; i < clazzs.length; i++) {
 			try {
-				validators[i] = clazzs[i].newInstance();
+				validators[i] = clazzs[i].getDeclaredConstructor().newInstance();
 			} catch (Exception e) {
 				validators[i] = null;
 				e.printStackTrace();

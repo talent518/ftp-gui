@@ -1,24 +1,22 @@
 package com.talent518.ftp.gui;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.RenderingHints;
+import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -44,6 +42,7 @@ import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -51,6 +50,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -59,10 +59,6 @@ import javax.swing.JTextArea;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
@@ -70,72 +66,27 @@ import javax.swing.event.TableModelListener;
 
 import org.apache.log4j.Logger;
 
-import com.sun.awt.AWTUtilities;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site.Favorite;
+import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
+import com.talent518.ftp.gui.filter.FileTypeFilter;
 import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
+import com.talent518.ftp.gui.ui.TabbedPaneUI;
 import com.talent518.ftp.protocol.IProtocol;
 import com.talent518.ftp.util.FileUtils;
 
-@SuppressWarnings("restriction")
 public class MainFrame extends JFrame implements ComponentListener, WindowListener, FileTable.Listener, ProgressTable.Listener {
 	private static final long serialVersionUID = 1723682780360129927L;
 	private static final double DIVIDER = 0.5;
 
 	private static final Logger log = Logger.getLogger(MainFrame.class);
+	private static final SimpleDateFormat logFormat = new SimpleDateFormat("yyyyMMddHHmm");
 	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
-	private static JFrame load = new JFrame();
 	private static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
-
-	public static void main(String[] args) {
-		JButton btn = new JButton(Settings.language().getString("loading"), icon);
-
-		btn.setBorder(BorderFactory.createEmptyBorder());
-		btn.setForeground(Color.BLUE);
-		btn.setBackground(new Color(0, 0, 0, 0));
-		btn.setContentAreaFilled(false);
-		btn.setBounds(0, 0, icon.getIconWidth(), icon.getIconHeight());
-		btn.setHorizontalTextPosition(SwingConstants.CENTER);
-		btn.setVerticalTextPosition(SwingConstants.CENTER);
-		btn.setOpaque(false);// 设置控件是否透明，true为不透明，false为透明
-		btn.setContentAreaFilled(false);// 设置图片填满按钮所在的区域
-		btn.setMargin(new Insets(0, 0, 0, 0));// 设置按钮边框和标签文字之间的距离
-		btn.setFocusPainted(false);// 设置这个按钮是不是获得焦点
-		btn.setBorderPainted(false);// 设置是否绘制边框
-
-		load.setIconImage(icon.getImage());
-		load.setLayout(new BorderLayout(0, 0));
-		load.add(btn, BorderLayout.CENTER);
-		load.setSize(icon.getIconWidth(), icon.getIconHeight());
-		load.setLocationRelativeTo(null);
-		load.setResizable(true);
-		load.setUndecorated(true);
-		load.setVisible(true);
-
-		AWTUtilities.setWindowOpaque(load, false);
-
-		EventQueue.invokeLater(() -> {
-			try {
-				// UIManager.setLookAndFeel("com.sun.java.swing.plaf.motif.MotifLookAndFeel");
-				// UIManager.setLookAndFeel("com.sun.java.swing.plaf.gtk.GTKLookAndFeel");
-				// UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel");
-				// UIManager.setLookAndFeel("com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
-				UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-				// UIManager.setLookAndFeel("javax.swing.plaf.multi.MultiLookAndFeel");
-				// UIManager.setLookAndFeel("javax.swing.plaf.metal.MetalLookAndFeel");
-				// UIManager.setLookAndFeel("javax.swing.plaf.synth.SynthLookAndFeel");
-				// UIManager.setLookAndFeel("sun.awt.X11.XAWTLookAndFeel");
-				// UIManager.setLookAndFeel(new SubstanceAutumnLookAndFeel());
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			new MainFrame().setVisible(true);
-		});
-	}
 
 	private final Settings settings = Settings.instance();
 	private final ResourceBundle language = Settings.language();
@@ -148,6 +99,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final PopupMenu localMenu = new PopupMenu();
 	private final PopupMenu remoteMenu = new PopupMenu();
 	private final ProgressMenu progressMenu = new ProgressMenu();
+	private final ProgressMenu processedMenu = new ProgressMenu();
+	private final LogMenu logMenu = new LogMenu();
 
 	private final JSplitPane lrSplit = new JSplitPane();
 	private final JSplitPane tbSplit = new JSplitPane();
@@ -156,8 +109,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final FileTable localTable = new FileTable(language.getString("local"), true);
 
 	private final JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.BOTTOM, JTabbedPane.WRAP_TAB_LAYOUT);
-	private final ProgressTable progressTable = new ProgressTable();
-	private final ProgressTable processedTable = new ProgressTable();
+	private final ProgressTable progressTable = new ProgressTable(true);
+	private final ProgressTable processedTable = new ProgressTable(false);
 	private final JTextArea logText = new JTextArea();
 
 	private final JLabel leftStatus = new JLabel();
@@ -168,7 +121,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private MenuItem localQueueMenu;
 	private MenuItem progressTransferMenu;
 	private MenuItem progressSuspendMenu;
-	private MenuItem progressCleanAllMenu;
+	private MenuItem progressCleanMenu;
 
 	private IProtocol protocol = null;
 
@@ -182,7 +135,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		setIconImage(icon.getImage());
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
-		content.setBorder(new EmptyBorder(0, 0, 0, 0));
+		content.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 		content.setLayout(new BorderLayout(0, 0));
 		setContentPane(content);
 
@@ -198,10 +151,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		remoteTable.setListener(this);
 		localTable.setListener(this);
 		progressTable.setListener(this);
+		processedTable.setListener(this);
 
 		localTable.setAddr(System.getProperty("user.home"));
-		progressTable.load("progress");
-		processedTable.load("processed");
+		progressTable.load();
+		processedTable.load();
 	}
 
 	public IProtocol getProtocol() {
@@ -243,6 +197,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		mLang.add(new MenuItem("lang.chinese", KeyEvent.VK_C, MenuItem.KEY_CHINESE).setKeyStroke("ctrl shift C").enabled(!settings.getLang().equals("zh"))); // Chinese Language
 		menuBar.add(mLang);
 
+		Menu mSkin = new Menu("menu.skin", KeyEvent.VK_K);
+		i = KeyEvent.VK_A;
+		for (String key : Skin.keys())
+			mSkin.add(new RadioMenuItem(key, key.equals(settings.getSkin()), RadioMenuItem.KEY_SKIN));
+
+		menuBar.add(mSkin);
+
 		Menu mAbout = new Menu("menu.about", KeyEvent.VK_A);
 		mAbout.add(new MenuItem("about.protocol", KeyEvent.VK_P, MenuItem.KEY_PROTOCOL).setKeyStroke("ctrl shift P")); // About Protocol
 		mAbout.add(new MenuItem("about.application", KeyEvent.VK_A, MenuItem.KEY_APP).setKeyStroke("ctrl shift A")); // About Application
@@ -252,30 +213,28 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	private void initToolbar() {
-		toolBar.setBorder(new LineBorder(new Color(0x999999), 1) {
-			private static final long serialVersionUID = 8347901766288376013L;
-
+		toolBar.setBorder(BorderFactory.createEmptyBorder());
+		toolBar.setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
+		toolBar.addComponentListener(new ComponentListener() {
 			@Override
-			public Insets getBorderInsets(Component c, Insets insets) {
-				insets.set(5, 5, 6, 5);
-				return insets;
+			public void componentShown(ComponentEvent e) {
+				tbSplit.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 			}
 
 			@Override
-			public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-				RenderingHints rh = new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				Color oldColor = g.getColor();
-				Graphics2D g2 = (Graphics2D) g;
+			public void componentResized(ComponentEvent e) {
+			}
 
-				g2.setRenderingHints(rh);
-				g2.setColor(lineColor);
-				g2.drawLine(0, height - 1, width, height - 1);
+			@Override
+			public void componentMoved(ComponentEvent e) {
+			}
 
-				g2.setColor(oldColor);
+			@Override
+			public void componentHidden(ComponentEvent e) {
+				tbSplit.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
 			}
 		});
 		toolBar.setVisible(false);
-
 		content.add(toolBar, BorderLayout.NORTH);
 	}
 
@@ -293,24 +252,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		JScrollPane scrollPane = new JScrollPane(logText, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		JScrollBar scrollBar = scrollPane.getVerticalScrollBar();
 
-		logText.setToolTipText(language.getString("tip.logText"));
-		logText.addKeyListener(new KeyListener() {
-			@Override
-			public void keyTyped(KeyEvent e) {
-			}
-
-			@Override
-			public void keyReleased(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_ENTER)
-					println("");
-				else if (e.getKeyCode() == KeyEvent.VK_DELETE)
-					logText.setText("");
-			}
-
-			@Override
-			public void keyPressed(KeyEvent e) {
-			}
-		});
 		logText.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
 			public void removeUpdate(DocumentEvent e) {
@@ -330,6 +271,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
 			}
 		});
+		logText.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3) {
+					logMenu.show(e.getComponent(), e.getX(), e.getY());
+				}
+			}
+		});
 		logText.setEditable(false);
 
 		progressTable.getModel().addTableModelListener(new TableModelListener() {
@@ -346,23 +295,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				tabbedPane.setTitleAt(1, String.format(language.getString("tabbed.processed"), processedTable.getList().size()));
 			}
 		});
-		processedTable.getTable().addKeyListener(new KeyListener() {
-			@Override
-			public void keyTyped(KeyEvent e) {
-			}
 
-			@Override
-			public void keyReleased(KeyEvent e) {
-			}
-
-			@Override
-			public void keyPressed(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_DELETE) {
-					processedTable.clear(true);
-				}
-			}
-		});
-
+		tabbedPane.setUI(new TabbedPaneUI());
 		tabbedPane.addTab(String.format(language.getString("tabbed.progress"), 0), progressTable);
 		tabbedPane.addTab(String.format(language.getString("tabbed.processed"), 0), processedTable);
 		tabbedPane.addTab(String.format(language.getString("tabbed.logging"), 0), scrollPane);
@@ -371,15 +305,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		lrSplit.setContinuousLayout(true);
 		lrSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
 		lrSplit.setDividerLocation(0.5);
-		lrSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
+		lrSplit.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 		lrSplit.setLeftComponent(remoteTable);
 		lrSplit.setRightComponent(localTable);
 
 		tbSplit.setOneTouchExpandable(true);
 		tbSplit.setContinuousLayout(true);
 		tbSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
-		tbSplit.setDividerLocation(300);
-		tbSplit.setBorder(new EmptyBorder(0, 0, 0, 0));
+		tbSplit.setDividerLocation(0.5);
+		tbSplit.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
 		tbSplit.setTopComponent(lrSplit);
 		tbSplit.setBottomComponent(tabbedPane);
 
@@ -388,30 +322,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private void initStatusBar() {
 		JPanel panel = new JPanel();
-		panel.setBorder(new LineBorder(new Color(0x999999), 1) {
-			private static final long serialVersionUID = 8347901766288376013L;
-
-			@Override
-			public Insets getBorderInsets(Component c, Insets insets) {
-				insets.set(6, 5, 5, 5);
-				return insets;
-			}
-
-			@Override
-			public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-				RenderingHints rh = new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				Color oldColor = g.getColor();
-				Graphics2D g2 = (Graphics2D) g;
-
-				g2.setRenderingHints(rh);
-				g2.setColor(lineColor);
-				g2.drawLine(0, 0, width, 0);
-
-				g2.setColor(oldColor);
-			}
-		});
+		panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		panel.setLayout(new BorderLayout(10, 10));
-		panel.setPreferredSize(new Dimension(100, 30));
 		panel.add(leftStatus, BorderLayout.CENTER);
 		panel.add(rightStatus, BorderLayout.EAST);
 		content.add(panel, BorderLayout.SOUTH);
@@ -436,21 +348,29 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		progressTransferMenu.setEnabled(false);
 		progressSuspendMenu = new MenuItem("progress.suspend", KeyEvent.VK_S, MenuItem.KEY_SUSPEND);
 		progressSuspendMenu.setEnabled(false);
-		progressCleanAllMenu = new MenuItem("progress.cleanAll", KeyEvent.VK_A, MenuItem.KEY_CLEAN_ALL);
+		progressCleanMenu = new MenuItem("progress.clean", KeyEvent.VK_C, MenuItem.KEY_CLEAN);
 		progressMenu.add(progressTransferMenu);
 		progressMenu.add(progressSuspendMenu);
 		progressMenu.addSeparator();
-		progressMenu.add(progressCleanAllMenu);
-		progressMenu.add(new MenuItem("progress.cleanCompleted", KeyEvent.VK_C, MenuItem.KEY_CLEAN_COMPLETED));
-		progressMenu.add(new MenuItem("progress.cleanError", KeyEvent.VK_E, MenuItem.KEY_CLEAN_ERROR));
+		progressMenu.add(progressCleanMenu);
+
+		processedMenu.add(new MenuItem("processed.cleanAll", KeyEvent.VK_A, MenuItem.KEY_CLEAN_ALL));
+		processedMenu.addSeparator();
+		processedMenu.add(new MenuItem("processed.cleanCompleted", KeyEvent.VK_C, MenuItem.KEY_CLEAN_COMPLETED));
+		processedMenu.add(new MenuItem("processed.cleanError", KeyEvent.VK_E, MenuItem.KEY_CLEAN_ERROR));
+
+		logMenu.add(new MenuItem("logMenu.save", KeyEvent.VK_S, MenuItem.KEY_LOG_SAVE));
+		logMenu.add(new MenuItem("logMenu.saveAs", KeyEvent.VK_A, MenuItem.KEY_LOG_SAVE_AS));
+		logMenu.addSeparator();
+		logMenu.add(new MenuItem("logMenu.clean", KeyEvent.VK_C, MenuItem.KEY_LOG_CLEAN));
 	}
 
 	private void closeWindow() {
 		if (transfer.isRunning()) {
 			transfer.stop(true);
 		} else {
-			progressTable.save("progress");
-			processedTable.save("processed");
+			progressTable.save();
+			processedTable.save();
 			System.exit(0);
 		}
 	}
@@ -476,10 +396,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	@Override
 	public void windowOpened(WindowEvent e) {
 		log.debug(e);
-		if (load != null) {
-			load.dispose();
-			load = null;
-		}
+		LoadFrame.close();
 	}
 
 	@Override
@@ -605,11 +522,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	@Override
 	public void selectedRow(boolean local, int i, Row r) {
-		leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
+		if (r != null) {
+			leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
+		} else {
+			leftStatus.setText("");
+		}
 	}
 
 	@Override
 	public void doubleClicked(boolean local, int i, Row r) {
+		if (r == null)
+			return;
+
 		if (r.isDir()) {
 			if (local) {
 				if (r.isUp()) {
@@ -630,38 +554,48 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	@Override
-	public void rightClicked(int i, ProgressTable.Row r, MouseEvent e) {
-		if (r == null)
-			return;
-
-		if (transfer.isRunning()) {
-			progressTransferMenu.setEnabled(false);
-			progressCleanAllMenu.setEnabled(false);
-			progressSuspendMenu.setEnabled(true);
-		} else {
-			progressTransferMenu.setEnabled(false);
-			progressSuspendMenu.setEnabled(false);
-			for (ProgressTable.Row r2 : progressTable.getList()) {
-				if (r2.getStatus() == ProgressTable.Row.STATUS_READY) {
-					progressTransferMenu.setEnabled(true);
-					break;
+	public void rightClicked(boolean isProgress, int i, ProgressTable.Row r, MouseEvent e) {
+		if (isProgress) {
+			if (transfer.isRunning()) {
+				progressTransferMenu.setEnabled(false);
+				progressCleanMenu.setEnabled(false);
+				progressSuspendMenu.setEnabled(true);
+			} else {
+				progressTransferMenu.setEnabled(false);
+				progressSuspendMenu.setEnabled(false);
+				for (ProgressTable.Row r2 : progressTable.getList()) {
+					if (r2.getStatus() == ProgressTable.Row.STATUS_READY) {
+						progressTransferMenu.setEnabled(true);
+						break;
+					}
 				}
+				progressCleanMenu.setEnabled(progressTable.getList().size() > 0);
 			}
-			progressCleanAllMenu.setEnabled(progressTable.getList().size() > 0);
+
+			progressMenu.setRow(r);
+			progressMenu.show(e.getComponent(), e.getX(), e.getY());
+		} else {
+			processedMenu.setRow(r);
+			processedMenu.show(e.getComponent(), e.getX(), e.getY());
 		}
-
-		progressMenu.setRow(r);
-		progressMenu.show(e.getComponent(), e.getX(), e.getY());
 	}
 
 	@Override
-	public void selectedRow(int i, ProgressTable.Row r) {
-		leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
+	public void selectedRow(boolean isProgress, int i, ProgressTable.Row r) {
+		if (r != null) {
+			leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
+		} else {
+			leftStatus.setText("");
+		}
 	}
 
 	@Override
-	public void doubleClicked(int i, ProgressTable.Row r) {
-		leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
+	public void doubleClicked(boolean isProgress, int i, ProgressTable.Row r) {
+		if (r != null) {
+			leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
+		} else {
+			leftStatus.setText("");
+		}
 	}
 
 	public class Transfer {
@@ -703,7 +637,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			timer = new Timer("transfer", true);
 			timer.schedule(new RefreshTask(), 250, 250);
 
-			// pool.execute(new ProgressQueue(progressTable.getList()));
 			synchronized (lock) {
 				addAll(progressTable.getList());
 			}
@@ -723,14 +656,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		public void add(ProgressTable.Row row) {
-			if (running.get()) {
+			if (isRunning()) {
 				// pool.execute(new ProgressQueue(row));
 				new ProgressQueue(row).run();
 			}
 		}
 
 		public void addAll(List<ProgressTable.Row> rows) {
-			if (running.get()) {
+			if (isRunning()) {
 				// pool.execute(new ProgressQueue(rows));
 				new ProgressQueue(rows).run();
 			}
@@ -755,7 +688,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				}
 
-				if (!diring.getAndSet(true)) {
+				if (isRunning() && !diring.getAndSet(true)) {
+					running.set(true);
 					new DirectoryThread().start();
 				}
 			}
@@ -935,7 +869,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 												}
 											}
 										}
-										
+
 										println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
 										synchronized (lock) {
 											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
@@ -1095,28 +1029,31 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					timer = null;
 				}
 
-				final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
-				synchronized (progresses) {
-					while (!progresses.isEmpty())
-						list.add(progresses.removeFirst());
-				}
-
-				synchronized (lock) {
-					synchronized (processedTable.getList()) {
-						list.removeIf(filter);
-						progressTable.getList().removeIf(filter);
-						processedTable.fireTableDataChanged();
+				EventQueue.invokeLater(() -> {
+					final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+					synchronized (progresses) {
+						while (!progresses.isEmpty())
+							list.add(progresses.removeFirst());
 					}
-					progressTable.getList().addAll(list);
+
+					synchronized (lock) {
+						synchronized (processedTable.getList()) {
+							list.removeIf(filter);
+							progressTable.getList().removeIf(filter);
+						}
+						progressTable.getList().addAll(list);
+					}
 					progressTable.fireTableDataChanged();
-				}
+					processedTable.fireTableDataChanged();
+
+					if (timer == null && closed.get()) {
+						progressTable.save();
+						processedTable.save();
+						System.exit(0);
+					}
+				});
 
 				rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
-				if (timer == null && closed.get()) {
-					progressTable.save("progress");
-					processedTable.save("processed");
-					System.exit(0);
-				}
 			}
 		}
 	}
@@ -1135,6 +1072,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		public JMenuItem add(MenuItem menuItem) {
+			return super.add((JMenuItem) menuItem);
+		}
+
+		public JMenuItem add(RadioMenuItem menuItem) {
 			return super.add((JMenuItem) menuItem);
 		}
 	}
@@ -1162,7 +1103,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	public class ProgressMenu extends JPopupMenu {
-		private static final long serialVersionUID = -6054322075287475764L;
+		private static final long serialVersionUID = -6054322075287475765L;
 
 		private ProgressTable.Row row;
 
@@ -1180,6 +1121,66 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		public JMenuItem add(MenuItem menuItem) {
 			return super.add((JMenuItem) menuItem);
+		}
+	}
+
+	public class LogMenu extends JPopupMenu {
+		private static final long serialVersionUID = -6054322075287475766L;
+
+		public LogMenu() {
+			super();
+		}
+
+		public JMenuItem add(MenuItem menuItem) {
+			return super.add((JMenuItem) menuItem);
+		}
+	}
+
+	public class RadioMenuItem extends JRadioButtonMenuItem implements Action {
+		private static final long serialVersionUID = -1218722648519492109L;
+
+		// menu skin
+		public static final int KEY_SKIN = 0;
+
+		String resKey, resVal;
+		private int key;
+
+		public RadioMenuItem(String res, boolean selected, int key) {
+			super();
+
+			resKey = res;
+			resVal = language.getString(res);
+			setText(resVal);
+			setSelected(selected);
+
+			this.key = key;
+
+			addActionListener(this);
+		}
+
+		@Override
+		public Object getValue(String key) {
+			log.debug("getValue: key = " + key);
+			return resVal;
+		}
+
+		@Override
+		public void putValue(String key, Object value) {
+			log.debug("putValue: key = " + key + ", value = " + value);
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			log.debug("Performed: resKey = " + resKey + ", resVal = " + resVal);
+
+			switch (key) {
+				case KEY_SKIN:
+					settings.setSkin(resKey);
+					settings.save();
+					dispose();
+					LoadFrame.main(new String[0]);
+					break;
+			}
 		}
 	}
 
@@ -1220,9 +1221,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		// popup progress menu
 		public static final int KEY_TRANSFER = 60;
 		public static final int KEY_SUSPEND = 61;
-		public static final int KEY_CLEAN_ALL = 62;
-		public static final int KEY_CLEAN_COMPLETED = 63;
-		public static final int KEY_CLEAN_ERROR = 64;
+		public static final int KEY_CLEAN = 62;
+
+		// popup processed menu
+		public static final int KEY_CLEAN_ALL = 70;
+		public static final int KEY_CLEAN_COMPLETED = 71;
+		public static final int KEY_CLEAN_ERROR = 72;
+
+		// popup log menu
+		public static final int KEY_LOG_SAVE = 80;
+		public static final int KEY_LOG_SAVE_AS = 81;
+		public static final int KEY_LOG_CLEAN = 82;
 
 		String resKey, resVal;
 		private int key;
@@ -1319,7 +1328,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							favoriteMenu.setEnabled(true);
-							initToolbar(protocol.getSite().getFavorites());
+							EventQueue.invokeLater(() -> {
+								initToolbar(protocol.getSite().getFavorites());
+							});
 							if (exists) {
 								enterAddr(false, getRemoteAddr());
 							} else {
@@ -1383,15 +1394,38 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_SUSPEND:
 					transfer.stop();
 					break;
-				case KEY_CLEAN_ALL:
+				case KEY_CLEAN:
 					progressTable.clear(true);
-					progressCleanAllMenu.setEnabled(false);
+					progressCleanMenu.setEnabled(false);
+					break;
+
+				case KEY_CLEAN_ALL:
+					processedTable.clear(true);
 					break;
 				case KEY_CLEAN_COMPLETED:
 					cleanProgress(ProgressTable.Row.STATUS_COMPLETED);
 					break;
 				case KEY_CLEAN_ERROR:
 					cleanProgress(ProgressTable.Row.STATUS_ERROR);
+					break;
+
+				case KEY_LOG_SAVE:
+					logSave(new File(Settings.LOG_PATH + "ftp-gui.log"));
+					break;
+				case KEY_LOG_SAVE_AS:
+					File f = new File(System.getProperty("user.home"));
+					JFileChooser chooser = new JFileChooser(f);
+					chooser.setDialogTitle(language.getString("chooser.log.title"));
+					chooser.setDialogType(JFileChooser.SAVE_DIALOG);
+					chooser.setApproveButtonText(language.getString("chooser.save"));
+					chooser.addChoosableFileFilter(new FileTypeFilter(".log", language.getString("chooser.log.type")));
+					chooser.setSelectedFile(new File(f, "ftp-gui-" + logFormat.format(new Date()) + ".log"));
+					if (chooser.showSaveDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
+						logSave(chooser.getSelectedFile());
+					}
+					break;
+				case KEY_LOG_CLEAN:
+					logText.setText("");
 					break;
 			}
 		}
@@ -1419,24 +1453,50 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			synchronized (progressTable.getList()) {
 				progressTable.getList().add(progress);
-				progressTable.fireTableDataChanged();
 			}
-			transfer.add(progress);
+			progressTable.fireTableDataChanged();
 
-			if (isStart) {
+			if (!transfer.isRunning() && isStart) {
 				transfer.start();
+			} else {
+				transfer.add(progress);
 			}
 		}
 
 		private void cleanProgress(final int status) {
-			synchronized (progressTable.getList()) {
-				progressTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
+			synchronized (processedTable.getList()) {
+				processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
 					@Override
 					public boolean test(ProgressTable.Row t) {
 						return t.getStatus() == status;
 					}
 				});
-				progressTable.fireTableDataChanged();
+			}
+			processedTable.fireTableDataChanged();
+		}
+
+		private void logSave(File f) {
+			FileWriter writer = null;
+			try {
+				File path = f.getParentFile();
+				if (!path.isDirectory()) {
+					path.mkdir();
+				}
+				writer = new FileWriter(f);
+				writer.write(logText.getText());
+				writer.flush();
+				logText.setText("");
+				log.info("Save " + f.getName() + " success");
+			} catch (Throwable t) {
+				log.error("Save " + f.getName() + " failure", t);
+			} finally {
+				if (writer != null) {
+					try {
+						writer.close();
+					} catch (IOException t) {
+						log.error("Close " + f.getName() + " writer failure", t);
+					}
+				}
 			}
 		}
 	}
@@ -1451,6 +1511,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			favorite = f;
 
+			final int W = getFont().getSize();
+			int w = W * 2;
+
+			for (char c : f.getName().toCharArray()) {
+				w += (c > 128 ? W : W / 2);
+			}
+
+			setPreferredSize(new Dimension(w, 30));
 			setToolTipText(String.format(language.getString("tip.favorite"), f.getName()));
 			addMouseListener(this);
 			addKeyListener(this);

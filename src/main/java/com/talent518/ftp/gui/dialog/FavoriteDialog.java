@@ -1,7 +1,5 @@
 package com.talent518.ftp.gui.dialog;
 
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -17,6 +15,7 @@ import javax.swing.JPanel;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site.Favorite;
 import com.talent518.ftp.gui.MainFrame;
+import com.talent518.ftp.gui.form.ButtonForm;
 import com.talent518.ftp.gui.form.FormField;
 import com.talent518.ftp.validator.RequiredValidator;
 
@@ -28,7 +27,7 @@ public class FavoriteDialog extends JDialog {
 	final FormField nameField;
 	final FormField remoteField;
 	final FormField localField;
-	final JPanel btn = new JPanel();
+	final ButtonForm btn = new ButtonForm();
 	final JButton confirm = new JButton(language.getString("favorite.confirm"));
 	final JButton cancel = new JButton(language.getString("favorite.cancel"));
 
@@ -54,7 +53,6 @@ public class FavoriteDialog extends JDialog {
 		remoteField = new FormField("favorite.remote", frame.getRemoteAddr(), RequiredValidator.class);
 		localField = new FormField("favorite.local", frame.getLocalAddr(), RequiredValidator.class);
 
-		confirm.setPreferredSize(new Dimension(100, 40));
 		confirm.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -71,7 +69,6 @@ public class FavoriteDialog extends JDialog {
 				FavoriteDialog.this.dispose();
 			}
 		});
-		cancel.setPreferredSize(new Dimension(100, 40));
 		cancel.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -79,8 +76,6 @@ public class FavoriteDialog extends JDialog {
 			}
 		});
 
-		btn.setBorder(BorderFactory.createEmptyBorder());
-		btn.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 0));
 		btn.add(confirm);
 		btn.add(cancel);
 
