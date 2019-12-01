@@ -172,6 +172,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	private Menu mSite;
+
 	private void initMenubar() {
 		Menu mFile = new Menu("menu.file", KeyEvent.VK_F);
 		mFile.add(new MenuItem("file.open", KeyEvent.VK_O, MenuItem.KEY_OPEN).setKeyStroke("ctrl O"));
@@ -186,7 +187,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		favoriteMenu.setEnabled(false);
 
 		mSite = new Menu("menu.site", KeyEvent.VK_S);
-		
+
 		menuBar.add(mSite);
 
 		Menu mLang = new Menu("menu.lang", KeyEvent.VK_L);
@@ -205,7 +206,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		setJMenuBar(menuBar);
 	}
-	
+
 	public void reInitSite() {
 		mSite.removeAll();
 		mSite.add(new MenuItem("site.manage", KeyEvent.VK_M, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
@@ -713,7 +714,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				if (sites.containsKey(r.getSite())) {
 					protocol = sites.get(r.getSite());
 				} else if (!settings.getSites().containsKey(r.getSite())) {
-					synchronized(lock) {
+					synchronized (lock) {
 						r.setStatus(ProgressTable.Row.STATUS_ERROR);
 					}
 					println(language.getString("log.siteNotExists"), r.getSite());
@@ -740,7 +741,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 
 				if (!protocol.isConnected() || !protocol.isLogined()) {
-					synchronized(lock) {
+					synchronized (lock) {
 						r.setStatus(ProgressTable.Row.STATUS_ERROR);
 					}
 					println(language.getString("log.connectOrLoginFailure"), r.getSite(), protocol.getError());
@@ -1329,18 +1330,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 				case KEY_SITE:
 					pool.execute(() -> {
-						boolean exists = protocol != null && resKey.equals(protocol.getSite().getName());
-						if (exists) {
-							println(language.getString("log.disconnecting"), resKey);
-							println(language.getString(protocol.logout() ? "log.disconnected" : "log.disconnecterr"), resKey);
-						} else {
-							if (protocol != null) {
-								println(language.getString("log.disconnecting"), protocol.getSite().getName());
-								protocol.logout();
-								println(language.getString(protocol.logout() ? "log.disconnected" : "log.disconnecterr"), protocol.getSite().getName());
-							}
-							protocol = settings.getSites().get(resKey).create();
+						if (protocol != null) {
+							protocol.dispose();
 						}
+						protocol = settings.getSites().get(resKey).create();
 						println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
@@ -1348,18 +1341,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							EventQueue.invokeLater(() -> {
 								setTitle(protocol.getSite().getName() + " - " + language.getString("app.name"));
 								initToolbar(protocol.getSite().getFavorites());
-								
-								if (exists) {
-									enterAddr(false, getRemoteAddr());
+
+								if (protocol.getSite().getLocal() != null && protocol.getSite().getLocal().length() > 0) {
+									localTable.setAddr(protocol.getSite().getLocal());
+								}
+								if (protocol.getSite().getRemote() != null && protocol.getSite().getRemote().length() > 0) {
+									remoteTable.setAddr(protocol.getSite().getRemote());
 								} else {
-									if (protocol.getSite().getLocal() != null) {
-										localTable.setAddr(protocol.getSite().getLocal());
-									}
-									if (protocol.getSite().getRemote() != null) {
-										remoteTable.setAddr(protocol.getSite().getRemote());
-									} else {
-										remoteTable.setAddr(protocol.pwd());
-									}
+									remoteTable.setAddr(protocol.pwd());
 								}
 							});
 						} else {

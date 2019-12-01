@@ -50,7 +50,7 @@ public class PinyinUtil {
 				else if (c1 > 128 && c2 > 128)
 					try {
 						return PinyinHelper.toHanyuPinyinStringArray(c1, defaultFormat)[0].compareTo(PinyinHelper.toHanyuPinyinStringArray(c2, defaultFormat)[0]);
-					} catch (BadHanyuPinyinOutputFormatCombination e) {
+					} catch (Throwable e) {
 						return c1 - c2;
 					}
 				else
