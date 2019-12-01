@@ -9,22 +9,23 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
+import javax.swing.JSpinner;
 import javax.swing.JToolTip;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.gui.ui.MultiLineToolTip;
-import com.talent518.ftp.validator.Validator;
 
-public class FormField extends JPanel {
+public class IntegerField extends JPanel {
 	private static final long serialVersionUID = 7338631397387052286L;
-	public static final Icon errorIcon = new ImageIcon(FormField.class.getResource("/icons/error.png"));
-	public static final Icon helpIcon = new ImageIcon(FormField.class.getResource("/icons/help.png"));
+	public static final Icon errorIcon = new ImageIcon(IntegerField.class.getResource("/icons/error.png"));
+	public static final Icon helpIcon = new ImageIcon(IntegerField.class.getResource("/icons/help.png"));
 
 	final ResourceBundle language = Settings.language();
 	private JLabel label;
-	private JTextField field;
+	private SpinnerNumberModel model;
+	private JSpinner field;
 	private JLabel icon = new JLabel(helpIcon) {
 		private static final long serialVersionUID = 3083135914717990808L;
 
@@ -35,19 +36,18 @@ public class FormField extends JPanel {
 			return tip;
 		}
 	};
-	private Validator[] validators;
 	private String help;
 
-	public FormField(String key, String val) {
-		this(key, val, (String) null);
+	public IntegerField(String key, int value, int minimum, int maximum, int stepSize) {
+		this(key, value, (String) null, minimum, maximum, stepSize);
 	}
 
-	public FormField(String key, String val, String help) {
+	public IntegerField(String key, int value, String help, int minimum, int maximum, int stepSize) {
 		super();
 
 		try {
 			this.help = (help == null ? null : language.getString(help));
-		} catch(Exception e) {
+		} catch (Exception e) {
 			this.help = help;
 			e.printStackTrace();
 		}
@@ -59,7 +59,12 @@ public class FormField extends JPanel {
 		label.setPreferredSize(new Dimension(60, Integer.MAX_VALUE));
 		label.setHorizontalAlignment(SwingConstants.RIGHT);
 
-		field = new JTextField(val);
+		model = new SpinnerNumberModel(value, minimum, maximum, stepSize);
+		field = new JSpinner(model);
+
+		JPanel center = new JPanel();
+		center.setLayout(new BorderLayout(10, 10));
+		center.add(field, BorderLayout.WEST);
 
 		icon.setPreferredSize(new Dimension(40, Integer.MAX_VALUE));
 		icon.setHorizontalAlignment(SwingConstants.CENTER);
@@ -67,40 +72,20 @@ public class FormField extends JPanel {
 		setHelp(null);
 
 		add(label, BorderLayout.WEST);
-		add(field, BorderLayout.CENTER);
+		add(center, BorderLayout.CENTER);
 		add(icon, BorderLayout.EAST);
-	}
-
-	@SafeVarargs
-	public FormField(String key, String val, Class<? extends Validator>... clazzs) {
-		this(key, val, null, clazzs);
-	}
-
-	@SafeVarargs
-	public FormField(String key, String val, String help, Class<? extends Validator>... clazzs) {
-		this(key, val, help);
-
-		validators = new Validator[clazzs.length];
-		for (int i = 0; i < clazzs.length; i++) {
-			try {
-				validators[i] = clazzs[i].getDeclaredConstructor().newInstance();
-			} catch (Exception e) {
-				validators[i] = null;
-				e.printStackTrace();
-			}
-		}
 	}
 
 	public JLabel getLabel() {
 		return label;
 	}
 
-	public JTextField getField() {
+	public JSpinner getField() {
 		return field;
 	}
 
-	public String getValue() {
-		return field.getText().trim();
+	public int getValue() {
+		return model.getNumber().intValue();
 	}
 
 	private void setHelp(String help) {
@@ -115,16 +100,5 @@ public class FormField extends JPanel {
 			visible = false;
 		}
 		icon.setVisible(visible);
-	}
-
-	public boolean validator() {
-		String val = getValue();
-		for (Validator v : validators) {
-			if (!v.validate(val)) {
-				setHelp(v.getMessage());
-				return false;
-			}
-		}
-		return true;
 	}
 }

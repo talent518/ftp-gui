@@ -2,14 +2,13 @@ package com.talent518.ftp.dao;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.log4j.Logger;
 
 import com.talent518.ftp.protocol.FTP;
 import com.talent518.ftp.protocol.IProtocol;
 
-public class Site {
+public class Site implements Cloneable {
 	private static final Logger log = Logger.getLogger(Site.class);
 	private static final Map<String, Class<?>> protocols = new HashMap<String, Class<?>>();
 	static {
@@ -17,8 +16,10 @@ public class Site {
 		protocols.put("ftps", FTP.class);
 	}
 
-	public static Set<String> getKeySet() {
-		return protocols.keySet();
+	public static String[] getProtocols() {
+		String[] keys = new String[protocols.size()];
+		protocols.keySet().toArray(keys);
+		return keys;
 	}
 
 	private String name;
@@ -46,15 +47,11 @@ public class Site {
 
 	private String serverType; // UNIX/VMS/WINDOWS
 	private boolean saveUnparseable;
-	private String defaultDateFormat;
-	private String recentDateFormat;
 
 	private boolean binaryTransfer;
 	private boolean localActive;
 	private boolean useEpsvWithIPv4;
 	private boolean isMlsd;
-	private boolean lenient;
-	private String serverTimeZoneId;
 
 	private Map<String, Favorite> favorites;
 
@@ -275,22 +272,6 @@ public class Site {
 		this.saveUnparseable = saveUnparseable;
 	}
 
-	public String getDefaultDateFormat() {
-		return defaultDateFormat;
-	}
-
-	public void setDefaultDateFormat(String defaultDateFormat) {
-		this.defaultDateFormat = defaultDateFormat;
-	}
-
-	public String getRecentDateFormat() {
-		return recentDateFormat;
-	}
-
-	public void setRecentDateFormat(String recentDateFormat) {
-		this.recentDateFormat = recentDateFormat;
-	}
-
 	public boolean isBinaryTransfer() {
 		return binaryTransfer;
 	}
@@ -323,33 +304,26 @@ public class Site {
 		this.isMlsd = isMlsd;
 	}
 
-	public boolean isLenient() {
-		return lenient;
-	}
-
-	public void setLenient(boolean lenient) {
-		this.lenient = lenient;
-	}
-
-	public String getServerTimeZoneId() {
-		return serverTimeZoneId;
-	}
-
-	public void setServerTimeZoneId(String serverTimeZoneId) {
-		this.serverTimeZoneId = serverTimeZoneId;
-	}
-
 	public Map<String, Favorite> getFavorites() {
-		if(favorites == null) {
+		if (favorites == null) {
 			favorites = new HashMap<String, Favorite>();
 		}
-		
+
 		return favorites;
 	}
 
 	public void setFavorites(Map<String, Favorite> favorites) {
 		if (favorites != null) {
 			this.favorites = favorites;
+		}
+	}
+
+	@Override
+	public Site clone() {
+		try {
+			return (Site) super.clone();
+		} catch (CloneNotSupportedException e) {
+			return null;
 		}
 	}
 

@@ -63,7 +63,7 @@ public class FTP extends IProtocol {
 				ftps.setTrustManager(null);
 			}
 			ftp = ftps;
-		} else if (s.getProxyHost() != null) {
+		} else if (s.getProxyHost() != null && s.getProxyHost().length() > 0) {
 			ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort(), s.getProxyUser(), s.getProxyPassword());
 		} else {
 			ftp = new FTPClient();
@@ -97,18 +97,6 @@ public class FTP extends IProtocol {
 			config = new FTPClientConfig();
 		}
 		config.setUnparseableEntries(s.isSaveUnparseable());
-		if (s.getDefaultDateFormat() != null) {
-			config.setDefaultDateFormatStr(s.getDefaultDateFormat());
-		}
-		if (s.getRecentDateFormat() != null) {
-			config.setRecentDateFormatStr(s.getRecentDateFormat());
-		}
-		if (site.isLenient() || site.getServerTimeZoneId() != null) {
-			config.setLenientFutureDates(site.isLenient());
-			if (site.getServerTimeZoneId() != null) {
-				config.setServerTimeZoneId(site.getServerTimeZoneId());
-			}
-		}
 
 		ftp.configure(config);
 	}
@@ -129,12 +117,14 @@ public class FTP extends IProtocol {
 
 			if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
 				log.error("Connect failure: " + ftp.getReplyString());
+				error = ftp.getReplyString();
 				ftp.disconnect();
 				return false;
 			}
 
 			if (!ftp.login(site.getUsername(), site.getPassword())) {
 				log.error("login failure: " + ftp.getReplyString());
+				error = ftp.getReplyString();
 				ftp.logout();
 
 				return false;

@@ -4,9 +4,10 @@ import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
 
+import javax.swing.plaf.basic.BasicGraphicsUtils;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 
-public class TabbedPaneUI extends BasicTabbedPaneUI {
+public class SiteTabbedPaneUI extends BasicTabbedPaneUI {
 	@Override
 	protected void installDefaults() {
 		super.installDefaults();
@@ -14,7 +15,7 @@ public class TabbedPaneUI extends BasicTabbedPaneUI {
 		tabInsets = new Insets(5, 10, 5, 10);
 		tabAreaInsets = new Insets(0, 10, 0, 0);
 		selectedTabPadInsets = new Insets(0, 0, 0, 0);
-		contentBorderInsets = new Insets(5, 5, 6, 5);
+		contentBorderInsets = new Insets(6, 5, 5, 10);
 	}
 
 	@Override
@@ -28,12 +29,18 @@ public class TabbedPaneUI extends BasicTabbedPaneUI {
 	}
 
 	@Override
-	protected void paintContentBorderBottomEdge(Graphics g, int tabPlacement, int selectedIndex, int x, int y, int w, int h) {
-		Rectangle r = rects[selectedIndex];
+	protected void paintFocusIndicator(Graphics g, int tabPlacement, Rectangle[] rects, int tabIndex, Rectangle iconRect, Rectangle textRect, boolean isSelected) {
+		Rectangle tabRect = rects[tabIndex];
+		if (tabPane.hasFocus() && isSelected) {
+			int x = tabRect.x + 3, y = tabRect.y + 3, w = tabRect.width - 6, h = tabRect.height - 5;
 
-		g.setColor(lightHighlight);
-		g.drawLine(x, y + h, x + r.x + 5, y + h);
-		g.drawLine(x + r.x + r.width, y + h, x + w, y + h);
+			g.setColor(focus);
+			BasicGraphicsUtils.drawDashedRect(g, x + 5, y, w - 5, h);
+		}
+	}
+
+	@Override
+	protected void paintContentBorderBottomEdge(Graphics g, int tabPlacement, int selectedIndex, int x, int y, int w, int h) {
 	}
 
 	@Override
@@ -46,5 +53,10 @@ public class TabbedPaneUI extends BasicTabbedPaneUI {
 
 	@Override
 	protected void paintContentBorderTopEdge(Graphics g, int tabPlacement, int selectedIndex, int x, int y, int w, int h) {
+		Rectangle r = rects[selectedIndex];
+
+		g.setColor(lightHighlight);
+		g.drawLine(x, y, x + r.x + 5, y);
+		g.drawLine(x + r.x + r.width - 1, y, x + w + 1, y);
 	}
 }

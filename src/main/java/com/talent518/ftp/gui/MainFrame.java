@@ -68,13 +68,14 @@ import org.apache.log4j.Logger;
 
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site.Favorite;
-import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
+import com.talent518.ftp.gui.dialog.SettingsDialog;
+import com.talent518.ftp.gui.dialog.SitesDialog;
 import com.talent518.ftp.gui.filter.FileTypeFilter;
 import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
-import com.talent518.ftp.gui.ui.TabbedPaneUI;
+import com.talent518.ftp.gui.ui.MainTabbedPaneUI;
 import com.talent518.ftp.protocol.IProtocol;
 import com.talent518.ftp.util.FileUtils;
 
@@ -170,6 +171,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		return localTable.getAddr();
 	}
 
+	private Menu mSite;
 	private void initMenubar() {
 		Menu mFile = new Menu("menu.file", KeyEvent.VK_F);
 		mFile.add(new MenuItem("file.open", KeyEvent.VK_O, MenuItem.KEY_OPEN).setKeyStroke("ctrl O"));
@@ -183,13 +185,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		favoriteMenu = new MenuItem("site.favorite", KeyEvent.VK_F, MenuItem.KEY_FAVORITE).setKeyStroke("ctrl D");
 		favoriteMenu.setEnabled(false);
 
-		Menu mSite = new Menu("menu.site", KeyEvent.VK_S);
-		mSite.add(new MenuItem("site.manage", KeyEvent.VK_M, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
-		mSite.add(favoriteMenu);
-		mSite.addSeparator();
-		int i = KeyEvent.VK_A;
-		for (String site : settings.getSiteNames())
-			mSite.add(new MenuItem(site, i, MenuItem.KEY_SITE).setKeyStroke("ctrl alt " + (char) i++));
+		mSite = new Menu("menu.site", KeyEvent.VK_S);
+		
 		menuBar.add(mSite);
 
 		Menu mLang = new Menu("menu.lang", KeyEvent.VK_L);
@@ -198,10 +195,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		menuBar.add(mLang);
 
 		Menu mSkin = new Menu("menu.skin", KeyEvent.VK_K);
-		i = KeyEvent.VK_A;
-		for (String key : Skin.keys())
-			mSkin.add(new RadioMenuItem(key, key.equals(settings.getSkin()), RadioMenuItem.KEY_SKIN));
-
+		reInitSite();
 		menuBar.add(mSkin);
 
 		Menu mAbout = new Menu("menu.about", KeyEvent.VK_A);
@@ -210,6 +204,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		menuBar.add(mAbout);
 
 		setJMenuBar(menuBar);
+	}
+	
+	public void reInitSite() {
+		mSite.removeAll();
+		mSite.add(new MenuItem("site.manage", KeyEvent.VK_M, MenuItem.KEY_MANAGE).setKeyStroke("ctrl M"));
+		mSite.add(favoriteMenu);
+		mSite.addSeparator();
+		int i = KeyEvent.VK_A;
+		for (String site : settings.getSiteNames())
+			mSite.add(new MenuItem(site, i, MenuItem.KEY_SITE).setKeyStroke("ctrl alt " + (char) i++));
 	}
 
 	private void initToolbar() {
@@ -296,7 +300,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			}
 		});
 
-		tabbedPane.setUI(new TabbedPaneUI());
+		tabbedPane.setUI(new MainTabbedPaneUI());
 		tabbedPane.addTab(String.format(language.getString("tabbed.progress"), 0), progressTable);
 		tabbedPane.addTab(String.format(language.getString("tabbed.processed"), 0), processedTable);
 		tabbedPane.addTab(String.format(language.getString("tabbed.logging"), 0), scrollPane);
@@ -484,6 +488,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					if (protocol.login())
 						println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					else
+						println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
 				}
 				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
 				if (protocol.ls(addr, list)) {
@@ -707,6 +713,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				if (sites.containsKey(r.getSite())) {
 					protocol = sites.get(r.getSite());
 				} else if (!settings.getSites().containsKey(r.getSite())) {
+					synchronized(lock) {
+						r.setStatus(ProgressTable.Row.STATUS_ERROR);
+					}
 					println(language.getString("log.siteNotExists"), r.getSite());
 					return true;
 				} else {
@@ -715,6 +724,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					if (protocol.login())
 						println(language.getString("log.connected"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					else
+						println(language.getString("log.connecterr"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
 
 					sites.put(r.getSite(), protocol);
 				}
@@ -724,10 +735,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					if (protocol.login())
 						println(language.getString("log.connected"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+					else
+						println(language.getString("log.connecterr"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
 				}
 
 				if (!protocol.isConnected() || !protocol.isLogined()) {
-					r.setStatus(ProgressTable.Row.STATUS_ERROR);
+					synchronized(lock) {
+						r.setStatus(ProgressTable.Row.STATUS_ERROR);
+					}
 					println(language.getString("log.connectOrLoginFailure"), r.getSite(), protocol.getError());
 					return true;
 				}
@@ -1301,11 +1316,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_SAVE:
 					break;
 				case KEY_PREF:
+					new SettingsDialog(MainFrame.this, true).setVisible(true);
 					break;
 				case KEY_QUIT:
 					closeWindow();
 					break;
 				case KEY_MANAGE:
+					new SitesDialog(MainFrame.this, true).setVisible(true);
 					break;
 				case KEY_FAVORITE:
 					new FavoriteDialog(MainFrame.this, true).setVisible(true);
@@ -1329,22 +1346,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							favoriteMenu.setEnabled(true);
 							EventQueue.invokeLater(() -> {
+								setTitle(protocol.getSite().getName() + " - " + language.getString("app.name"));
 								initToolbar(protocol.getSite().getFavorites());
-							});
-							if (exists) {
-								enterAddr(false, getRemoteAddr());
-							} else {
-								if (protocol.getSite().getLocal() != null) {
-									localTable.setAddr(protocol.getSite().getLocal());
-								}
-								if (protocol.getSite().getRemote() != null) {
-									remoteTable.setAddr(protocol.getSite().getRemote());
+								
+								if (exists) {
+									enterAddr(false, getRemoteAddr());
 								} else {
-									remoteTable.setAddr(protocol.pwd());
+									if (protocol.getSite().getLocal() != null) {
+										localTable.setAddr(protocol.getSite().getLocal());
+									}
+									if (protocol.getSite().getRemote() != null) {
+										remoteTable.setAddr(protocol.getSite().getRemote());
+									} else {
+										remoteTable.setAddr(protocol.pwd());
+									}
 								}
-							}
+							});
 						} else {
-							println(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							println(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
 							protocol.logout();
 							protocol = null;
 						}

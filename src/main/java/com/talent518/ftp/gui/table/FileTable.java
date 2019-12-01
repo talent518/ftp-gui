@@ -184,7 +184,7 @@ public class FileTable extends JPanel {
 		panelTable.setBorder(BorderFactory.createEmptyBorder());
 		panelTable.setLayout(new BorderLayout(5, 5));
 		panelTable.add(table.getTableHeader(), BorderLayout.NORTH);
-		panelTable.add(new JScrollPane(table), BorderLayout.CENTER);
+		panelTable.add(new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.CENTER);
 
 		setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
 		setLayout(new BorderLayout(5, 5));

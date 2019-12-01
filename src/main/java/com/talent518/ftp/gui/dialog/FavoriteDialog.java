@@ -50,8 +50,8 @@ public class FavoriteDialog extends JDialog {
 		setContentPane(panel);
 
 		nameField = new FormField("favorite.name", "", RequiredValidator.class);
-		remoteField = new FormField("favorite.remote", frame.getRemoteAddr(), RequiredValidator.class);
-		localField = new FormField("favorite.local", frame.getLocalAddr(), RequiredValidator.class);
+		remoteField = new FormField("favorite.remote", frame.getRemoteAddr(), "favorite.remote.help", RequiredValidator.class);
+		localField = new FormField("favorite.local", frame.getLocalAddr(), "favorite.local.help", RequiredValidator.class);
 
 		confirm.addActionListener(new ActionListener() {
 			@Override

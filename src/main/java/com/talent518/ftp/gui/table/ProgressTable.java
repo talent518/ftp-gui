@@ -57,7 +57,7 @@ public class ProgressTable extends JPanel {
 		model = new Model();
 		table = new JTable(model);
 		rowSorter = new TableRowSorter();
-		scrollPane = new JScrollPane(table);
+		scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
 		table.setRowSorter(rowSorter);
 		table.setRowHeight(30);
