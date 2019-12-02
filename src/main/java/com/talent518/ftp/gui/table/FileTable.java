@@ -110,7 +110,7 @@ public class FileTable extends JPanel {
 		// size column(1)
 		tableColumn = table.getColumnModel().getColumn(1);
 		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(60);
+		tableColumn.setMaxWidth(70);
 		tableColumn.setCellRenderer(new SizeColumn());
 
 		// type column(2)

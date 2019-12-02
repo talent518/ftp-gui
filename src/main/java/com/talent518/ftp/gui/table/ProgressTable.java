@@ -122,7 +122,7 @@ public class ProgressTable extends JPanel {
 		// size column(5)
 		tableColumn = table.getColumnModel().getColumn(5);
 		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(60);
+		tableColumn.setMaxWidth(70);
 		tableColumn.setCellRenderer(new SizeColumn());
 
 		// progress column(6)

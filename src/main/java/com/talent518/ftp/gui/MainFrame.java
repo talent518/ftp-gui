@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 import javax.swing.Action;
@@ -363,6 +364,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		processedMenu.addSeparator();
 		processedMenu.add(new MenuItem("processed.cleanCompleted", KeyEvent.VK_C, MenuItem.KEY_CLEAN_COMPLETED));
 		processedMenu.add(new MenuItem("processed.cleanError", KeyEvent.VK_E, MenuItem.KEY_CLEAN_ERROR));
+		processedMenu.addSeparator();
+		processedMenu.add(new MenuItem("processed.errorRetransfer", KeyEvent.VK_R, MenuItem.KEY_ERROR_RETRANSFER));
 
 		logMenu.add(new MenuItem("logMenu.save", KeyEvent.VK_S, MenuItem.KEY_LOG_SAVE));
 		logMenu.add(new MenuItem("logMenu.saveAs", KeyEvent.VK_A, MenuItem.KEY_LOG_SAVE_AS));
@@ -617,6 +620,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private AtomicInteger nError = new AtomicInteger(0);
 		private AtomicInteger nSkip = new AtomicInteger(0);
 		private AtomicInteger nCount = new AtomicInteger(0);
+		private AtomicLong nTotalBytes = new AtomicLong(0);
+		private AtomicLong nUpBytes = new AtomicLong(0);
+		private AtomicLong nDownBytes = new AtomicLong(0);
 		private LinkedList<ProgressTable.Row> progresses = new LinkedList<ProgressTable.Row>();
 		private List<ProgressTable.Row> lock;
 		private Timer timer;
@@ -635,6 +641,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			nError.set(0);
 			nSkip.set(0);
 			nCount.set(0);
+			nTotalBytes.set(0);
+			nUpBytes.set(0);
+			nDownBytes.set(0);
 			rightStatus.setText("");
 
 			queue.clear();
@@ -642,7 +651,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			lock = progressTable.getList();
 			timer = new Timer("transfer", true);
-			timer.schedule(new RefreshTask(), 250, 250);
+			timer.schedule(new RefreshTask(), 100, 100);
+			timer.schedule(new BytesTask(), 1000, 1000);
 
 			synchronized (lock) {
 				addAll(progressTable.getList());
@@ -996,9 +1006,33 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			@Override
 			public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+				long delta = totalBytesTransferred - row.getWritten();
+				nTotalBytes.getAndAdd(delta);
+				if (row.isDirection()) {
+					nUpBytes.getAndAdd(delta);
+				} else {
+					nDownBytes.getAndAdd(delta);
+				}
 				row.setWritten(totalBytesTransferred);
 			}
-		};
+		}
+
+		private class BytesTask extends TimerTask {
+			final String format = language.getString("transfer.speed");
+			
+			@Override
+			public void run() {
+				long down = nDownBytes.getAndSet(0);
+				long up = nUpBytes.getAndSet(0);
+				long total = nTotalBytes.getAndSet(0);
+
+				String totalBytes = FileUtils.formatSize(total);
+				String upBytes = FileUtils.formatSize(up);
+				String downBytes = FileUtils.formatSize(down);
+
+				leftStatus.setText(String.format(format, totalBytes, upBytes, downBytes));
+			}
+		}
 
 		private class RefreshTask extends TimerTask {
 			private final int NTHREAD = settings.getNthreads();
@@ -1243,6 +1277,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public static final int KEY_CLEAN_ALL = 70;
 		public static final int KEY_CLEAN_COMPLETED = 71;
 		public static final int KEY_CLEAN_ERROR = 72;
+		public static final int KEY_ERROR_RETRANSFER = 73;
 
 		// popup log menu
 		public static final int KEY_LOG_SAVE = 80;
@@ -1416,6 +1451,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_CLEAN_ERROR:
 					cleanProgress(ProgressTable.Row.STATUS_ERROR);
 					break;
+				case KEY_ERROR_RETRANSFER:
+					errorRetransfer();
+					break;
 
 				case KEY_LOG_SAVE:
 					logSave(new File(Settings.LOG_PATH + "ftp-gui.log"));
@@ -1481,6 +1519,35 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				});
 			}
 			processedTable.fireTableDataChanged();
+		}
+
+		private void errorRetransfer() {
+			final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+			synchronized (processedTable.getList()) {
+				processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
+					@Override
+					public boolean test(ProgressTable.Row t) {
+						if (t.getStatus() == ProgressTable.Row.STATUS_ERROR) {
+							t.setWritten(0);
+							t.setProgress(0);
+							t.setStatus(ProgressTable.Row.STATUS_READY);
+							list.add(t);
+							return true;
+						}
+						return false;
+					}
+				});
+			}
+			synchronized (progressTable.getList()) {
+				progressTable.getList().addAll(list);
+			}
+			progressTable.fireTableDataChanged();
+			processedTable.fireTableDataChanged();
+			if (!transfer.isRunning()) {
+				transfer.start();
+			} else {
+				transfer.addAll(list);
+			}
 		}
 
 		private void logSave(File f) {
