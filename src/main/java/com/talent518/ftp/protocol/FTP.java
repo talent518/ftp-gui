@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.net.PrintCommandListener;
@@ -199,6 +200,19 @@ public class FTP extends IProtocol {
 			return false;
 		}
 	}
+	
+	@Override
+	public boolean rename(String from, String to) {
+		error = null;
+		
+		try {
+			return ftp.rename(from, to);
+		} catch (IOException e) {
+			log.error("rename " + from + " to " + to + " failure", e);
+			error = e.getMessage();
+			return false;
+		}
+	}
 
 	@Override
 	public boolean mkdir(String remote) {
@@ -218,7 +232,21 @@ public class FTP extends IProtocol {
 		error = null;
 		
 		try {
-			return ftp.removeDirectory(remote);
+			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
+			if(ls(remote, rows)) {
+				for(FileTable.Row r: rows) {
+					if(r.isDir()) {
+						if(!rmdir(remote + '/' + r.getName()))
+							return false;
+					} else {
+						if(!unlink(remote + '/' + r.getName()))
+							return false;
+					}
+				}
+				return ftp.removeDirectory(remote);
+			} else {
+				return false;
+			}
 		} catch (IOException e) {
 			log.error("rmdir " + remote + " failure", e);
 			error = e.getMessage();

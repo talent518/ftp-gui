@@ -58,6 +58,8 @@ public abstract class IProtocol {
 
 	public abstract boolean ls(String remote, List<FileTable.Row> files);
 	
+	public abstract boolean rename(String from, String to);
+	
 	public abstract boolean mkdir(String remote);
 	public abstract boolean rmdir(String remote);
 	public abstract boolean unlink(String remote);

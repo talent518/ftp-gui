@@ -71,6 +71,7 @@ import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site.Favorite;
 import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
+import com.talent518.ftp.gui.dialog.NameDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
 import com.talent518.ftp.gui.dialog.SitesDialog;
 import com.talent518.ftp.gui.filter.FileTypeFilter;
@@ -326,12 +327,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		localMenu.addSeparator();
 		localMenu.add(new MenuItem("local.delete", KeyEvent.VK_D, MenuItem.KEY_LDELETE));
 		localMenu.add(new MenuItem("local.mkdir", KeyEvent.VK_M, MenuItem.KEY_LMKDIR));
+		localMenu.add(new MenuItem("local.rename", KeyEvent.VK_R, MenuItem.KEY_LRENAME));
 
 		remoteMenu.add(new MenuItem("remote.download", KeyEvent.VK_D, MenuItem.KEY_DOWNLOAD));
 		remoteMenu.add(new MenuItem("remote.queue", KeyEvent.VK_Q, MenuItem.KEY_RQUEUE));
 		remoteMenu.addSeparator();
 		remoteMenu.add(new MenuItem("remote.delete", KeyEvent.VK_D, MenuItem.KEY_RDELETE));
 		remoteMenu.add(new MenuItem("remote.mkdir", KeyEvent.VK_M, MenuItem.KEY_RMKDIR));
+		remoteMenu.add(new MenuItem("remote.rename", KeyEvent.VK_R, MenuItem.KEY_RRENAME));
 
 		progressTransferMenu = new MenuItem("progress.transfer", KeyEvent.VK_T, MenuItem.KEY_TRANSFER);
 		progressTransferMenu.setEnabled(false);
@@ -498,17 +501,31 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	@Override
-	public void rightClicked(boolean isLocal, int i, Row r, MouseEvent e) {
-		if (r == null)
-			return;
-
+	public void rightClicked(boolean isLocal, int index, Row row, MouseEvent e) {
+		if (row == null) {
+			for (int i = 0; i < localMenu.getComponentCount(); i++) {
+				localMenu.getComponent(i).setEnabled(i == 4);
+			}
+			for (int i = 0; i < remoteMenu.getComponentCount(); i++) {
+				remoteMenu.getComponent(i).setEnabled(protocol != null && i == 4);
+			}
+		} else {
+			for (int i = 0; i < localMenu.getComponentCount(); i++) {
+				localMenu.getComponent(i).setEnabled(true);
+			}
+			for (int i = 0; i < remoteMenu.getComponentCount(); i++) {
+				remoteMenu.getComponent(i).setEnabled(true);
+			}
+		}
 		if (isLocal) {
-			localUploadMenu.setEnabled(protocol != null);
-			localQueueMenu.setEnabled(protocol != null);
-			localMenu.setRow(r);
+			if (row != null) {
+				localUploadMenu.setEnabled(protocol != null);
+				localQueueMenu.setEnabled(protocol != null);
+			}
+			localMenu.setRow(row);
 			localMenu.show(e.getComponent(), e.getX(), e.getY());
 		} else {
-			remoteMenu.setRow(r);
+			remoteMenu.setRow(row);
 			remoteMenu.show(e.getComponent(), e.getX(), e.getY());
 		}
 	}
@@ -1244,12 +1261,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public static final int KEY_LQUEUE = 41;
 		public static final int KEY_LDELETE = 42;
 		public static final int KEY_LMKDIR = 43;
+		public static final int KEY_LRENAME = 44;
 
 		// popup remote menu
 		public static final int KEY_DOWNLOAD = 50;
 		public static final int KEY_RQUEUE = 51;
 		public static final int KEY_RDELETE = 52;
 		public static final int KEY_RMKDIR = 53;
+		public static final int KEY_RRENAME = 54;
 
 		// popup progress menu
 		public static final int KEY_TRANSFER = 60;
@@ -1380,13 +1399,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					settings.setLocale(new Locale("en", "US"));
 					settings.save();
 					dispose();
-					new MainFrame().setVisible(true);
+					LoadFrame.main(new String[0]);
 					break;
 				case KEY_CHINESE:
 					settings.setLocale(new Locale("zh", "CN"));
 					settings.save();
 					dispose();
-					new MainFrame().setVisible(true);
+					LoadFrame.main(new String[0]);
 					break;
 				case KEY_PROTOCOL:
 					break;
@@ -1400,8 +1419,69 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					addProgress(false, true, localMenu.getRow());
 					break;
 				case KEY_LDELETE:
+					pool.execute(() -> {
+						final File f = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
+						if (localMenu.getRow().isDir()) {
+							try {
+								println(language.getString("remote.delete.dir.being"), f.getAbsolutePath());
+								org.apache.commons.io.FileUtils.deleteDirectory(f);
+								EventQueue.invokeLater(() -> {
+									localTable.setAddr(localTable.getAddr());
+								});
+								println(language.getString("remote.delete.dir.success"), f.getAbsolutePath());
+							} catch (Exception e2) {
+								println(language.getString("remote.delete.dir.failure"), f.getAbsolutePath(), e2.getMessage());
+							}
+						} else {
+							try {
+								println(language.getString("remote.delete.file.being"), f.getAbsolutePath());
+								f.delete();
+								EventQueue.invokeLater(() -> {
+									localTable.setAddr(localTable.getAddr());
+								});
+								println(language.getString("remote.delete.file.success"), f.getAbsolutePath());
+							} catch (Exception e2) {
+								println(language.getString("remote.delete.file.failure"), f.getAbsolutePath(), e2.getMessage());
+							}
+						}
+					});
 					break;
 				case KEY_LMKDIR:
+					new NameDialog(MainFrame.this, true).show(resVal, new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							File f = new File(localTable.getAddr() + File.separator + name);
+							try {
+								println(language.getString("local.mkdir.being"), f.getAbsolutePath());
+								f.mkdir();
+								EventQueue.invokeLater(() -> {
+									localTable.setAddr(localTable.getAddr());
+								});
+								println(language.getString("local.mkdir.success"), f.getAbsolutePath());
+							} catch (Exception e2) {
+								println(language.getString("local.mkdir.failure"), f.getAbsolutePath(), e2.getMessage());
+							}
+						}
+					});
+					break;
+				case KEY_LRENAME:
+					new NameDialog(MainFrame.this, true).show(resVal, localMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							File from = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
+							File to = new File(localTable.getAddr() + File.separator + name);
+							try {
+								println(language.getString("local.rename.being"), from.getAbsolutePath(), to.getAbsolutePath());
+								from.renameTo(to);
+								EventQueue.invokeLater(() -> {
+									localTable.setAddr(localTable.getAddr());
+								});
+								println(language.getString("local.rename.success"), from.getAbsolutePath(), to.getAbsolutePath());
+							} catch (Exception e2) {
+								println(language.getString("local.rename.failure"), from.getAbsolutePath(), to.getAbsolutePath(), e2.getMessage());
+							}
+						}
+					});
 					break;
 				case KEY_DOWNLOAD:
 					addProgress(true, false, remoteMenu.getRow());
@@ -1410,8 +1490,69 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					addProgress(false, false, remoteMenu.getRow());
 					break;
 				case KEY_RDELETE:
+					pool.execute(() -> {
+						final String f = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
+						if (remoteMenu.getRow().isDir()) {
+							println(language.getString("remote.delete.dir.being"), f);
+							if (protocol.rmdir(f)) {
+								EventQueue.invokeLater(() -> {
+									remoteTable.setAddr(remoteTable.getAddr());
+								});
+								println(language.getString("remote.delete.dir.success"), f);
+							} else {
+								println(language.getString("remote.delete.dir.failure"), f, protocol.getError());
+							}
+						} else {
+							leftStatus.setText(String.format(language.getString("remote.delete.file.being"), f));
+							if (protocol.unlink(f)) {
+								EventQueue.invokeLater(() -> {
+									remoteTable.setAddr(remoteTable.getAddr());
+								});
+								println(language.getString("remote.delete.file.success"), f);
+							} else {
+								println(language.getString("remote.delete.file.failure"), f, protocol.getError());
+							}
+						}
+					});
 					break;
 				case KEY_RMKDIR:
+					new NameDialog(MainFrame.this, true).show(resVal, new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							final String f = remoteTable.getAddr() + '/' + name;
+							pool.execute(() -> {
+								println(language.getString("remote.mkdir.being"), f);
+								if (protocol.mkdir(f)) {
+									EventQueue.invokeLater(() -> {
+										remoteTable.setAddr(remoteTable.getAddr());
+									});
+									println(language.getString("remote.mkdir.success"), f);
+								} else {
+									println(language.getString("remote.mkdir.failure"), f, protocol.getError());
+								}
+							});
+						}
+					});
+					break;
+				case KEY_RRENAME:
+					new NameDialog(MainFrame.this, true).show(resVal, remoteMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							final String from = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
+							final String to = remoteTable.getAddr() + '/' + name;
+							pool.execute(() -> {
+								println(language.getString("remote.rename.being"), from, to);
+								if (protocol.rename(from, to)) {
+									EventQueue.invokeLater(() -> {
+										remoteTable.setAddr(remoteTable.getAddr());
+									});
+									println(language.getString("remote.rename.success"), from, to);
+								} else {
+									println(language.getString("remote.rename.failure"), from, to, protocol.getError());
+								}
+							});
+						}
+					});
 					break;
 
 				case KEY_TRANSFER:

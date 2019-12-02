@@ -56,6 +56,7 @@ public class FileTable extends JPanel {
 	private Listener listener = null;
 	private TableRowSorter rowSorter = null;
 	private String currentPath = null;
+	private JScrollPane scrollPane;
 
 	public FileTable(String label) {
 		this(label, false);
@@ -68,6 +69,7 @@ public class FileTable extends JPanel {
 		model = new Model();
 		table = new JTable(model);
 		rowSorter = new TableRowSorter();
+		scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
 		table.setRowSorter(rowSorter);
 		table.setRowHeight(30);
@@ -110,7 +112,7 @@ public class FileTable extends JPanel {
 		// size column(1)
 		tableColumn = table.getColumnModel().getColumn(1);
 		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(70);
+		tableColumn.setMaxWidth(60);
 		tableColumn.setCellRenderer(new SizeColumn());
 
 		// type column(2)
@@ -121,15 +123,15 @@ public class FileTable extends JPanel {
 
 		// mtime column(3)
 		tableColumn = table.getColumnModel().getColumn(3);
-		tableColumn.setMinWidth(126);
-		tableColumn.setMaxWidth(126);
+		tableColumn.setMinWidth(100);
+		tableColumn.setMaxWidth(130);
 		tableColumn.setCellRenderer(new StringColumn());
 
 		if (!isLocal) {
 			// perms column(4)
 			tableColumn = table.getColumnModel().getColumn(4);
-			tableColumn.setMinWidth(70);
-			tableColumn.setMaxWidth(Integer.valueOf(language.getString("perms.size")));
+			tableColumn.setMinWidth(50);
+			tableColumn.setMaxWidth(82);
 			tableColumn.setCellRenderer(new StringColumn());
 
 			// uid column(5)
@@ -184,12 +186,20 @@ public class FileTable extends JPanel {
 		panelTable.setBorder(BorderFactory.createEmptyBorder());
 		panelTable.setLayout(new BorderLayout(5, 5));
 		panelTable.add(table.getTableHeader(), BorderLayout.NORTH);
-		panelTable.add(new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER), BorderLayout.CENTER);
+		panelTable.add(scrollPane, BorderLayout.CENTER);
 
 		setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		setLayout(new BorderLayout(5, 5));
 		add(panelNav, BorderLayout.NORTH);
 		add(panelTable, BorderLayout.CENTER);
+		scrollPane.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
+					listener.rightClicked(isLocal, -1, null, e);
+				}
+			}
+		});
 	}
 
 	public JTable getTable() {

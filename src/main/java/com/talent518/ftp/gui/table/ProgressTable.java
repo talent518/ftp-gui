@@ -53,7 +53,7 @@ public class ProgressTable extends JPanel {
 
 	public ProgressTable(boolean isProgress) {
 		this.isProgress = isProgress;
-		
+
 		model = new Model();
 		table = new JTable(model);
 		rowSorter = new TableRowSorter();
@@ -80,7 +80,7 @@ public class ProgressTable extends JPanel {
 			public void mouseClicked(MouseEvent e) {
 				if (e.getClickCount() == 2 && e.getButton() == MouseEvent.BUTTON1 && listener != null) {
 					try {
-						listener.doubleClicked(isProgress, table.getSelectedRow(), table.getSelectedRow() >=0 ? getList().get(table.getSelectedRow()) : null);
+						listener.doubleClicked(isProgress, table.getSelectedRow(), table.getSelectedRow() >= 0 ? getList().get(table.getSelectedRow()) : null);
 					} catch (ArrayIndexOutOfBoundsException e2) {
 					}
 				} else if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3 && listener != null) {
@@ -122,7 +122,7 @@ public class ProgressTable extends JPanel {
 		// size column(5)
 		tableColumn = table.getColumnModel().getColumn(5);
 		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(70);
+		tableColumn.setMaxWidth(60);
 		tableColumn.setCellRenderer(new SizeColumn());
 
 		// progress column(6)
@@ -172,7 +172,7 @@ public class ProgressTable extends JPanel {
 			model.fireTableDataChanged();
 		});
 	}
-	
+
 	public void load() {
 		load(isProgress ? "progress" : "processed");
 	}
@@ -206,7 +206,7 @@ public class ProgressTable extends JPanel {
 	public void save() {
 		save(isProgress ? "progress" : "processed");
 	}
-	
+
 	public void save(String name) {
 		save(new File(Settings.ROOT_PATH + File.separator + name + ".json"));
 	}
