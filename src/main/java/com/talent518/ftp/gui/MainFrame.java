@@ -223,25 +223,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private void initToolbar() {
 		toolBar.setBorder(BorderFactory.createEmptyBorder());
 		toolBar.setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
-		toolBar.addComponentListener(new ComponentListener() {
-			@Override
-			public void componentShown(ComponentEvent e) {
-				tbSplit.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-			}
-
-			@Override
-			public void componentResized(ComponentEvent e) {
-			}
-
-			@Override
-			public void componentMoved(ComponentEvent e) {
-			}
-
-			@Override
-			public void componentHidden(ComponentEvent e) {
-				tbSplit.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
-			}
-		});
 		toolBar.setVisible(false);
 		content.add(toolBar, BorderLayout.NORTH);
 	}
@@ -313,7 +294,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		lrSplit.setContinuousLayout(true);
 		lrSplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
 		lrSplit.setDividerLocation(0.5);
-		lrSplit.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+		lrSplit.setBorder(BorderFactory.createEmptyBorder());
 		lrSplit.setLeftComponent(remoteTable);
 		lrSplit.setRightComponent(localTable);
 
@@ -321,7 +302,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		tbSplit.setContinuousLayout(true);
 		tbSplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		tbSplit.setDividerLocation(0.5);
-		tbSplit.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+		tbSplit.setBorder(BorderFactory.createEmptyBorder());
 		tbSplit.setTopComponent(lrSplit);
 		tbSplit.setBottomComponent(tabbedPane);
 
