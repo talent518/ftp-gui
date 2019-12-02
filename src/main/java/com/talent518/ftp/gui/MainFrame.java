@@ -1408,8 +1408,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					LoadFrame.main(new String[0]);
 					break;
 				case KEY_PROTOCOL:
+					leftStatus.setText(language.getString("about.protocol.help"));
 					break;
 				case KEY_APP:
+					leftStatus.setText(language.getString("about.application.help"));
 					break;
 
 				case KEY_UPLOAD:
