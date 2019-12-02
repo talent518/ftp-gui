@@ -7,6 +7,7 @@ import org.apache.log4j.Logger;
 
 import com.talent518.ftp.protocol.FTP;
 import com.talent518.ftp.protocol.IProtocol;
+import com.talent518.ftp.protocol.SFTP;
 
 public class Site implements Cloneable {
 	private static final Logger log = Logger.getLogger(Site.class);
@@ -14,6 +15,7 @@ public class Site implements Cloneable {
 	static {
 		protocols.put("ftp", FTP.class);
 		protocols.put("ftps", FTP.class);
+		protocols.put("sftp", SFTP.class);
 	}
 
 	public static String[] getProtocols() {
@@ -52,6 +54,8 @@ public class Site implements Cloneable {
 	private boolean localActive;
 	private boolean useEpsvWithIPv4;
 	private boolean isMlsd;
+
+	private String privateKey;
 
 	private Map<String, Favorite> favorites;
 
@@ -302,6 +306,14 @@ public class Site implements Cloneable {
 
 	public void setMlsd(boolean isMlsd) {
 		this.isMlsd = isMlsd;
+	}
+
+	public String getPrivateKey() {
+		return privateKey;
+	}
+
+	public void setPrivateKey(String privateKey) {
+		this.privateKey = privateKey;
 	}
 
 	public Map<String, Favorite> getFavorites() {

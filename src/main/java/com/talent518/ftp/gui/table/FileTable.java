@@ -14,6 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -35,6 +36,8 @@ import javax.swing.table.TableColumn;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.log4j.Logger;
 
+import com.jcraft.jsch.SftpATTRS;
+import com.jcraft.jsch.ChannelSftp.LsEntry;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.gui.table.column.NameColumn;
 import com.talent518.ftp.gui.table.column.SizeColumn;
@@ -655,6 +658,35 @@ public class FileTable extends JPanel {
 			perms = sb.toString();
 			uid = Integer.parseInt(f.getUser());
 			gid = Integer.parseInt(f.getGroup());
+		}
+		
+		public Row(LsEntry entry) {
+			SftpATTRS attrs = entry.getAttrs();
+			
+			type = "Unknown";
+			if(attrs.isDir()) {
+				type = "DIR";
+				isDir = true;
+			} else if(attrs.isReg()) {
+				type = "REG";
+			} else if(attrs.isLink()) {
+				type = "LNK";
+			} else if(attrs.isBlk()) {
+				type = "BLK";
+			} else if(attrs.isChr()) {
+				type = "CHR";
+			} else if(attrs.isFifo()) {
+				type = "FIFO";
+			} else if(attrs.isSock()) {
+				type = "SOCK";
+			}
+			
+			name = entry.getFilename();
+			perms = attrs.getPermissionsString();
+			mtime = dateFormat.format(new Date((long) (attrs.getMTime()) * 1000));
+			size = attrs.getSize();
+			uid = attrs.getUId();
+			gid = attrs.getGId();
 		}
 
 		private char formatType(int _type) {

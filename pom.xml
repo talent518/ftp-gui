@@ -18,6 +18,14 @@
 			<artifactId>commons-net</artifactId>
 			<version>3.6</version>
 		</dependency>
+		
+		<!-- SFTP协议依赖 -->
+		<!-- https://mvnrepository.com/artifact/com.jcraft/jsch -->
+		<dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jsch</artifactId>
+			<version>0.1.55</version>
+		</dependency>
 
 		<!-- 日志相关依赖 -->
 		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
