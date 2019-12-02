@@ -69,6 +69,7 @@ import org.apache.log4j.Logger;
 
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site.Favorite;
+import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
 import com.talent518.ftp.gui.dialog.SitesDialog;
@@ -188,7 +189,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		favoriteMenu.setEnabled(false);
 
 		mSite = new Menu("menu.site", KeyEvent.VK_S);
-
+		reInitSite();
 		menuBar.add(mSite);
 
 		Menu mLang = new Menu("menu.lang", KeyEvent.VK_L);
@@ -197,7 +198,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		menuBar.add(mLang);
 
 		Menu mSkin = new Menu("menu.skin", KeyEvent.VK_K);
-		reInitSite();
+		for (String key : Skin.keys())
+			mSkin.add(new RadioMenuItem(key, key.equals(settings.getSkin()), RadioMenuItem.KEY_SKIN));
 		menuBar.add(mSkin);
 
 		Menu mAbout = new Menu("menu.about", KeyEvent.VK_A);
@@ -1019,7 +1021,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		private class BytesTask extends TimerTask {
 			final String format = language.getString("transfer.speed");
-			
+
 			@Override
 			public void run() {
 				long down = nDownBytes.getAndSet(0);
