@@ -36,13 +36,15 @@ public class SFTP extends IProtocol {
 		
 		@Override
 		public boolean count(long count) {
-			progressListener.bytesTransferred(count, 0, -1);
+			if(progressListener != null) {
+				progressListener.bytesTransferred(count, 0, -1);
+			}
 			return true;
 		}
 	};
 
-	private ChannelSftp sftp;
-	private Session session;
+	private ChannelSftp sftp = null;
+	private Session session = null;
 
 	public SFTP(Site s) {
 		super(s);
@@ -50,7 +52,7 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean isConnected() {
-		return sftp.isConnected() && error == null;
+		return sftp != null && sftp.isConnected() && error == null;
 	}
 
 	@Override
@@ -109,6 +111,9 @@ public class SFTP extends IProtocol {
 					files.add(new Row(entry));
 			return true;
 		} catch (SftpException e) {
+			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+				return true;
+			
 			log.error("ls error", e);
 			error = e.getMessage();
 			return false;
@@ -133,6 +138,8 @@ public class SFTP extends IProtocol {
 			sftp.mkdir(remote);
 			return true;
 		} catch (SftpException e) {
+			if(e.id == ChannelSftp.SSH_FX_FAILURE)
+				return true;
 			log.error("mkdir error", e);
 			error = e.getMessage();
 			return false;
@@ -159,6 +166,9 @@ public class SFTP extends IProtocol {
 				return false;
 			}
 		} catch (SftpException e) {
+			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+				return true;
+			
 			log.error("rmdir error", e);
 			error = e.getMessage();
 			return false;
@@ -171,6 +181,9 @@ public class SFTP extends IProtocol {
 			sftp.rm(remote);
 			return true;
 		} catch (SftpException e) {
+			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+				return true;
+			
 			log.error("unlink error", e);
 			error = e.getMessage();
 			return false;
@@ -245,6 +258,7 @@ public class SFTP extends IProtocol {
 			}
 			session = null;
 		}
+		setLogined(false);
 		return true;
 	}
 

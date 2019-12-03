@@ -17,16 +17,24 @@ import java.awt.event.WindowListener;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Formatter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
@@ -68,6 +76,7 @@ import javax.swing.event.TableModelListener;
 import org.apache.log4j.Logger;
 
 import com.talent518.ftp.dao.Settings;
+import com.talent518.ftp.dao.Site;
 import com.talent518.ftp.dao.Site.Favorite;
 import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
@@ -236,8 +245,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		toolBar.setVisible(toolBar.getComponentCount() > 0);
-		toolBar.validate(); 
-		toolBar.repaint(); 
+		toolBar.validate();
+		toolBar.repaint();
 	}
 
 	private void initSplit() {
@@ -549,10 +558,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (r.isDir()) {
 			if (local) {
 				if (r.isUp()) {
-					if(protocol != null && protocol.getSite().isSync()) {
+					if (protocol != null && protocol.getSite().isSync()) {
 						String rStr = remoteTable.getParentPath();
 						String lStr = localTable.getParentPath();
-						if(rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
+						if (rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
 							remoteTable.setAddr(rStr);
 							localTable.setAddr(lStr);
 						} else {
@@ -565,16 +574,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				} else {
 					localTable.setAddr(localTable.getPath(r.getName()));
-					if(protocol != null && protocol.getSite().isSync()) {
+					if (protocol != null && protocol.getSite().isSync()) {
 						remoteTable.setAddr(remoteTable.getPath(r.getName()));
 					}
 				}
 			} else {
 				if (r.isUp()) {
-					if(protocol.getSite().isSync()) {
+					if (protocol.getSite().isSync()) {
 						String rStr = remoteTable.getParentPath();
 						String lStr = localTable.getParentPath();
-						if(rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
+						if (rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
 							remoteTable.setAddr(rStr);
 							localTable.setAddr(lStr);
 						} else {
@@ -587,7 +596,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				} else {
 					remoteTable.setAddr(remoteTable.getPath(r.getName()));
-					if(protocol.getSite().isSync()) {
+					if (protocol.getSite().isSync()) {
 						localTable.setAddr(localTable.getPath(r.getName()));
 					}
 				}
@@ -717,6 +726,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			if (isRunning()) {
 				// pool.execute(new ProgressQueue(rows));
 				new ProgressQueue(rows).run();
+			}
+		}
+
+		private final Set<String> watchSet = new HashSet<String>();
+
+		public void watch(Site s) {
+			synchronized (watchSet) {
+				if (!watchSet.contains(s.getName())) {
+					watchSet.add(s.getName());
+					new WatchThread(s).start();
+				}
 			}
 		}
 
@@ -1028,6 +1048,221 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 
 				diring.set(false);
+			}
+		}
+
+		private class WatchThread extends Thread {
+			private final Site site;
+			private final LinkedList<File> fList = new LinkedList<File>();
+			private final Map<WatchKey, String> watchKeys = new HashMap<WatchKey, String>();
+			private final Map<String, WatchKey> watchVals = new HashMap<String, WatchKey>();
+			private LinkedBlockingQueue<DeleteNode> watchQueue = new LinkedBlockingQueue<DeleteNode>(1000000);
+			private Runnable runQueue = new Runnable() {
+				DeleteNode node;
+				IProtocol protocol = null;
+
+				@Override
+				public void run() {
+					while (true) {
+						try {
+							node = watchQueue.take();
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+							continue;
+						}
+
+						if (protocol == null) {
+							protocol = site.create();
+
+							println(language.getString("log.connecting"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							if (protocol.login())
+								println(language.getString("log.connected"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							else
+								println(language.getString("log.connecterr"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
+						} else if (!protocol.isConnected() && protocol.isLogined()) {
+							protocol.logout();
+							println(language.getString("log.connecting"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							if (protocol.login())
+								println(language.getString("log.connected"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							else
+								println(language.getString("log.connecterr"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
+						}
+
+						if (!protocol.isConnected() || !protocol.isLogined()) {
+							println(language.getString("log.connectOrLoginFailure"), site.getName(), protocol.getError());
+							if (node.isDir()) {
+								println(language.getString("remote.delete.dir.failure"), node.getRemote(), protocol.getError());
+							} else {
+								println(language.getString("remote.delete.file.failure"), node.getRemote(), protocol.getError());
+							}
+							continue;
+						}
+
+						if (node.isDelete()) {
+							if (node.isDir()) {
+								println(language.getString("remote.delete.dir.being"), node.getRemote());
+								if (protocol.rmdir(node.getRemote())) {
+									println(language.getString("remote.delete.dir.success"), node.getRemote());
+								} else {
+									println(language.getString("remote.delete.dir.failure"), node.getRemote(), protocol.getError());
+								}
+							} else {
+								println(language.getString("remote.delete.file.being"), node.getRemote());
+								if (protocol.unlink(node.getRemote())) {
+									println(language.getString("remote.delete.file.success"), node.getRemote());
+								} else {
+									println(language.getString("remote.delete.file.failure"), node.getRemote(), protocol.getError());
+								}
+							}
+						} else {
+							if (node.isDir()) {
+								println(language.getString("log.mkdiring"), node.getRemote(), site.getName());
+								if (protocol.mkdir(node.getRemote())) {
+									println(language.getString("log.mkdired"), node.getRemote(), site.getName());
+								} else {
+									println(language.getString("log.mkdirerr"), node.getRemote(), site.getName(), protocol.getError());
+								}
+							} else {
+								println(language.getString("log.uploading"), node.getLocal(), node.getRemote(), site.getName());
+								if (protocol.storeFile(node.getRemote(), node.getLocal())) {
+									println(language.getString("log.uploaded"), node.getLocal(), node.getRemote(), site.getName());
+								} else {
+									println(language.getString("log.uploaderr"), node.getLocal(), node.getRemote(), site.getName(), protocol.getError());
+								}
+							}
+						}
+					}
+				}
+			};
+
+			public WatchThread(Site s) {
+				super();
+
+				site = s;
+			}
+
+			@Override
+			public void run() {
+				WatchService watchService;
+				File[] fs;
+				File f;
+				WatchKey key, key2;
+
+				new Thread(runQueue).start();
+
+				try {
+					watchService = FileSystems.getDefault().newWatchService();
+
+					fList.add(new File(site.getLocal()));
+
+					while (fList.size() > 0) {
+						f = fList.removeFirst();
+						println("WATCH: " + f.getAbsolutePath());
+						if (f.isDirectory() && f.canRead()) {
+							key = Paths.get(f.getAbsolutePath()).register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
+							watchKeys.put(key, f.getAbsolutePath());
+							watchVals.put(f.getAbsolutePath(), key);
+						} else
+							continue;
+						fs = f.listFiles();
+						if (fs == null)
+							continue;
+						for (File f2 : fs)
+							if (f2.isDirectory())
+								fList.add(f2);
+					}
+
+					while (watchKeys.size() > 0) {
+						key = watchService.take();
+						String path = watchKeys.get(key);
+						List<WatchEvent<?>> watchEvents = key.pollEvents();
+						for (WatchEvent<?> event : watchEvents) {
+							f = new File(path + File.separator + event.context());
+							println(event.kind() + ": " + f.getAbsolutePath());
+
+							if (StandardWatchEventKinds.ENTRY_CREATE == event.kind()) {
+								if (f.isDirectory()) {
+									println("WATCH: " + f.getAbsolutePath());
+									key2 = Paths.get(f.getAbsolutePath()).register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
+									watchKeys.put(key2, f.getAbsolutePath());
+									watchVals.put(f.getAbsolutePath(), key2);
+
+									watchQueue.put(new DeleteNode(getRemote(f.getAbsolutePath()), true, null));
+//								} else {
+//									watchQueue.put(new DeleteNode(getRemote(f.getAbsolutePath()), false, f.getAbsolutePath()));
+								}
+							}
+							if (StandardWatchEventKinds.ENTRY_MODIFY == event.kind()) {
+								if (!f.isDirectory()) {
+									watchQueue.put(new DeleteNode(getRemote(f.getAbsolutePath()), false, f.getAbsolutePath()));
+								}
+							}
+							if (StandardWatchEventKinds.ENTRY_DELETE == event.kind()) {
+								if (watchVals.containsKey(f.getAbsolutePath())) {
+									println("UNWATCH: " + f.getAbsolutePath());
+									key2 = watchVals.get(f.getAbsolutePath());
+									key2.cancel();
+									watchKeys.remove(key2);
+									watchVals.remove(f.getAbsolutePath());
+
+									watchQueue.put(new DeleteNode(getRemote(f.getAbsolutePath()), true));
+								} else {
+									watchQueue.put(new DeleteNode(getRemote(f.getAbsolutePath()), false));
+								}
+							}
+						}
+						key.reset();
+					}
+				} catch (Exception e) {
+					log.error("newWatchService error", e);
+					println(e.getMessage());
+				}
+			}
+
+			private String getRemote(String path) {
+				return site.getRemote() + path.substring(site.getRemote().length());
+			}
+
+			private class DeleteNode {
+				private String remote;
+				private boolean isDir;
+				private boolean isDelete;
+				private String local;
+
+				public DeleteNode(String remote, boolean isDir) {
+					super();
+					this.remote = remote;
+					this.isDir = isDir;
+					this.isDelete = true;
+				}
+
+				public DeleteNode(String remote, boolean isDir, String local) {
+					super();
+					this.remote = remote;
+					this.isDir = isDir;
+					this.local = local;
+				}
+
+				public String getRemote() {
+					return remote;
+				}
+
+				public boolean isDir() {
+					return isDir;
+				}
+
+				public boolean isDelete() {
+					return isDelete;
+				}
+
+				public String getLocal() {
+					return local;
+				}
+
+				@Override
+				public String toString() {
+					return Settings.gson().toJson(this);
+				}
 			}
 		}
 
@@ -1408,6 +1643,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+							if (settings.isWatch() && protocol.getSite().isWatch()) {
+								transfer.watch(protocol.getSite());
+							}
 							favoriteMenu.setEnabled(true);
 							EventQueue.invokeLater(() -> {
 								setTitle(protocol.getSite().getName() + " - " + (protocol.getSite().isSync() ? language.getString("sync") + " - " : "") + language.getString("app.name"));
@@ -1539,7 +1777,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								println(language.getString("remote.delete.dir.failure"), f, protocol.getError());
 							}
 						} else {
-							leftStatus.setText(String.format(language.getString("remote.delete.file.being"), f));
+							println(language.getString("remote.delete.file.being"), f);
 							if (protocol.unlink(f)) {
 								EventQueue.invokeLater(() -> {
 									remoteTable.setAddr(remoteTable.getAddr());
