@@ -393,7 +393,7 @@ public class SitesDialog extends JDialog {
 			mSite.setRemote(remoteField.getValue());
 			mSite.setLocal(localField.getValue());
 			mSite.setRemark(remarkField.getValue());
-			mSite.setSync(syncField.getValue());
+			mSite.setSync(syncField.getValue() && localField.validator() && remoteField.validator());
 			mSite.setWatch(watchField.getValue());
 
 			mSite.setImplicit(isImplicitField.getValue());

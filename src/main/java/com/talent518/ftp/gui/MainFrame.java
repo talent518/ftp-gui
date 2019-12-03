@@ -549,15 +549,47 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (r.isDir()) {
 			if (local) {
 				if (r.isUp()) {
-					localTable.setAddr(localTable.getParentPath());
+					if(protocol != null && protocol.getSite().isSync()) {
+						String rStr = remoteTable.getParentPath();
+						String lStr = localTable.getParentPath();
+						if(rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
+							remoteTable.setAddr(rStr);
+							localTable.setAddr(lStr);
+						} else {
+							String s = language.getString("log.sync");
+							leftStatus.setText(s);
+							println(s);
+						}
+					} else {
+						localTable.setAddr(localTable.getParentPath());
+					}
 				} else {
 					localTable.setAddr(localTable.getPath(r.getName()));
+					if(protocol != null && protocol.getSite().isSync()) {
+						remoteTable.setAddr(remoteTable.getPath(r.getName()));
+					}
 				}
 			} else {
 				if (r.isUp()) {
-					remoteTable.setAddr(remoteTable.getParentPath());
+					if(protocol.getSite().isSync()) {
+						String rStr = remoteTable.getParentPath();
+						String lStr = localTable.getParentPath();
+						if(rStr.startsWith(protocol.getSite().getRemote()) && lStr.startsWith(protocol.getSite().getLocal())) {
+							remoteTable.setAddr(rStr);
+							localTable.setAddr(lStr);
+						} else {
+							String s = language.getString("log.sync");
+							leftStatus.setText(s);
+							println(s);
+						}
+					} else {
+						remoteTable.setAddr(remoteTable.getParentPath());
+					}
 				} else {
 					remoteTable.setAddr(remoteTable.getPath(r.getName()));
+					if(protocol.getSite().isSync()) {
+						localTable.setAddr(localTable.getPath(r.getName()));
+					}
 				}
 			}
 		} else {
@@ -1378,7 +1410,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							favoriteMenu.setEnabled(true);
 							EventQueue.invokeLater(() -> {
-								setTitle(protocol.getSite().getName() + " - " + language.getString("app.name"));
+								setTitle(protocol.getSite().getName() + " - " + (protocol.getSite().isSync() ? language.getString("sync") + " - " : "") + language.getString("app.name"));
 								initToolbar(protocol.getSite().getFavorites());
 
 								if (protocol.getSite().getLocal() != null && protocol.getSite().getLocal().length() > 0) {

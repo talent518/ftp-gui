@@ -296,6 +296,7 @@ public class FileTable extends JPanel {
 			model.getList().addAll(list);
 			EventQueue.invokeLater(() -> {
 				model.fireTableDataChanged();
+				scrollPane.getVerticalScrollBar().setValue(0);
 			});
 		}
 	}
