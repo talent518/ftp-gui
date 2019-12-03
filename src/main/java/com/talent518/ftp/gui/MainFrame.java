@@ -236,6 +236,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		toolBar.setVisible(toolBar.getComponentCount() > 0);
+		toolBar.validate(); 
+		toolBar.repaint(); 
 	}
 
 	private void initSplit() {

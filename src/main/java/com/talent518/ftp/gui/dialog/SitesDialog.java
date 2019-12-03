@@ -152,7 +152,9 @@ public class SitesDialog extends JDialog {
 				do {
 					s2 = s + "(" + (++i) + ")";
 				} while (model.contains(s2));
-				siteMap.put(s2, siteMap.get(s).clone());
+				Site ss = siteMap.get(s).clone();
+				ss.setName(s2);
+				siteMap.put(s2, ss);
 				model.add(model.indexOf(s) + 1, s2);
 				siteList.setSelectedValue(s2, true);
 			}

@@ -333,7 +333,12 @@ public class Site implements Cloneable {
 	@Override
 	public Site clone() {
 		try {
-			return (Site) super.clone();
+			Site s = (Site) super.clone();
+			Map<String, Favorite> fav = new HashMap<String, Favorite>();
+			for (Map.Entry<String, Favorite> entry : getFavorites().entrySet())
+				fav.put(entry.getKey(), entry.getValue());
+			s.setFavorites(fav);
+			return s;
 		} catch (CloneNotSupportedException e) {
 			return null;
 		}

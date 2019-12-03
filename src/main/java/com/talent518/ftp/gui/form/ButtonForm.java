@@ -15,8 +15,6 @@ public class ButtonForm extends JPanel implements ComponentListener {
 	public ButtonForm() {
 		super();
 
-		System.out.println(this);
-
 		setBorder(BorderFactory.createEmptyBorder());
 		setLayout(new FlowLayout(FlowLayout.CENTER, 10, 0));
 		addComponentListener(this);
@@ -28,7 +26,6 @@ public class ButtonForm extends JPanel implements ComponentListener {
 
 	@Override
 	public void componentResized(ComponentEvent e) {
-		System.out.println(e);
 		for (int i = 0; i < getComponentCount(); i++) {
 			Component btn = getComponent(i);
 			Dimension dim = new Dimension(btn.getWidth(), getHeight());
