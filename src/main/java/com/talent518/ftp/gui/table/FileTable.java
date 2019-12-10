@@ -36,8 +36,8 @@ import javax.swing.table.TableColumn;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.log4j.Logger;
 
-import com.jcraft.jsch.SftpATTRS;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
+import com.jcraft.jsch.SftpATTRS;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.gui.table.column.NameColumn;
 import com.talent518.ftp.gui.table.column.SizeColumn;
@@ -296,7 +296,9 @@ public class FileTable extends JPanel {
 			model.getList().addAll(list);
 			EventQueue.invokeLater(() -> {
 				model.fireTableDataChanged();
-				scrollPane.getVerticalScrollBar().setValue(0);
+				if (Settings.instance().isScrollTop()) {
+					scrollPane.getVerticalScrollBar().setValue(0);
+				}
 			});
 		}
 	}
@@ -660,28 +662,28 @@ public class FileTable extends JPanel {
 			uid = Integer.parseInt(f.getUser());
 			gid = Integer.parseInt(f.getGroup());
 		}
-		
+
 		public Row(LsEntry entry) {
 			SftpATTRS attrs = entry.getAttrs();
-			
+
 			type = "Unknown";
-			if(attrs.isDir()) {
+			if (attrs.isDir()) {
 				type = "DIR";
 				isDir = true;
-			} else if(attrs.isReg()) {
+			} else if (attrs.isReg()) {
 				type = "REG";
-			} else if(attrs.isLink()) {
+			} else if (attrs.isLink()) {
 				type = "LNK";
-			} else if(attrs.isBlk()) {
+			} else if (attrs.isBlk()) {
 				type = "BLK";
-			} else if(attrs.isChr()) {
+			} else if (attrs.isChr()) {
 				type = "CHR";
-			} else if(attrs.isFifo()) {
+			} else if (attrs.isFifo()) {
 				type = "FIFO";
-			} else if(attrs.isSock()) {
+			} else if (attrs.isSock()) {
 				type = "SOCK";
 			}
-			
+
 			name = entry.getFilename();
 			perms = attrs.getPermissionsString();
 			mtime = dateFormat.format(new Date((long) (attrs.getMTime()) * 1000));

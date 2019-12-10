@@ -26,18 +26,26 @@ import com.talent518.ftp.gui.table.FileTable.Row;
 public class SFTP extends IProtocol {
 	private static Logger log = Logger.getLogger(SFTP.class);
 	private final SftpProgressMonitor monitor = new SftpProgressMonitor() {
+		long written, total;
+		
 		@Override
 		public void init(int op, String src, String dest, long max) {
+			total = max;
+			written = 0;
 		}
 		
 		@Override
 		public void end() {
+			if(progressListener != null && total != UNKNOWN_SIZE) {
+				progressListener.bytesTransferred(total, 0, -1);
+			}
 		}
 		
 		@Override
 		public boolean count(long count) {
+			written += count;
 			if(progressListener != null) {
-				progressListener.bytesTransferred(count, 0, -1);
+				progressListener.bytesTransferred(written, 0, -1);
 			}
 			return true;
 		}

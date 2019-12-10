@@ -84,6 +84,7 @@ import com.talent518.ftp.gui.dialog.NameDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
 import com.talent518.ftp.gui.dialog.SitesDialog;
 import com.talent518.ftp.gui.filter.FileTypeFilter;
+import com.talent518.ftp.gui.loading.InfiniteProgressPanel;
 import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
@@ -257,19 +258,19 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			@Override
 			public void removeUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
 			}
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
 			}
 		});
 		logText.addMouseListener(new MouseAdapter() {
@@ -446,6 +447,18 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		println(new Formatter().format(format, args).toString());
 	}
 
+	private final InfiniteProgressPanel glassPane = new InfiniteProgressPanel();
+
+	private void showLoading() {
+		glassPane.setBounds(getBounds());
+		setGlassPane(glassPane);
+		glassPane.start();
+	}
+
+	private void hideLoading() {
+		glassPane.stop();
+	}
+
 	@Override
 	public void enterAddr(boolean local, String addr) {
 		if (local) {
@@ -458,6 +471,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			log.debug("Enter remote: " + addr + " begin");
 			println(language.getString("log.remoteEntering"), addr);
 		}
+
+		showLoading();
+
 		String old = local ? localTable.getAddr() : remoteTable.getAddr();
 		pool.execute(() -> {
 			if (local) {
@@ -508,6 +524,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.remoteEntererr"), addr, protocol.getError());
 				}
 			}
+
+			hideLoading();
 		});
 	}
 
@@ -1635,6 +1653,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new FavoriteDialog(MainFrame.this, true).setVisible(true);
 					break;
 				case KEY_SITE:
+					showLoading();
 					pool.execute(() -> {
 						if (protocol != null) {
 							protocol.dispose();
@@ -1665,6 +1684,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							protocol.logout();
 							protocol = null;
 						}
+
+						hideLoading();
 					});
 					break;
 				case KEY_ENGLISH:
@@ -1693,6 +1714,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					addProgress(false, true, localMenu.getRow());
 					break;
 				case KEY_LDELETE:
+					showLoading();
 					pool.execute(() -> {
 						final File f = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
 						if (localMenu.getRow().isDir()) {
@@ -1718,23 +1740,30 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								println(language.getString("remote.delete.file.failure"), f.getAbsolutePath(), e2.getMessage());
 							}
 						}
+
+						hideLoading();
 					});
 					break;
 				case KEY_LMKDIR:
 					new NameDialog(MainFrame.this, true).show(resVal, new NameDialog.Listener() {
 						@Override
 						public void name(String name) {
-							File f = new File(localTable.getAddr() + File.separator + name);
-							try {
-								println(language.getString("local.mkdir.being"), f.getAbsolutePath());
-								f.mkdir();
-								EventQueue.invokeLater(() -> {
-									localTable.setAddr(localTable.getAddr());
-								});
-								println(language.getString("local.mkdir.success"), f.getAbsolutePath());
-							} catch (Exception e2) {
-								println(language.getString("local.mkdir.failure"), f.getAbsolutePath(), e2.getMessage());
-							}
+							showLoading();
+							pool.execute(() -> {
+								File f = new File(localTable.getAddr() + File.separator + name);
+								try {
+									println(language.getString("local.mkdir.being"), f.getAbsolutePath());
+									f.mkdir();
+									EventQueue.invokeLater(() -> {
+										localTable.setAddr(localTable.getAddr());
+									});
+									println(language.getString("local.mkdir.success"), f.getAbsolutePath());
+								} catch (Exception e2) {
+									println(language.getString("local.mkdir.failure"), f.getAbsolutePath(), e2.getMessage());
+								}
+
+								hideLoading();
+							});
 						}
 					});
 					break;
@@ -1742,18 +1771,23 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new NameDialog(MainFrame.this, true).show(resVal, localMenu.getRow().getName(), new NameDialog.Listener() {
 						@Override
 						public void name(String name) {
-							File from = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
-							File to = new File(localTable.getAddr() + File.separator + name);
-							try {
-								println(language.getString("local.rename.being"), from.getAbsolutePath(), to.getAbsolutePath());
-								from.renameTo(to);
-								EventQueue.invokeLater(() -> {
-									localTable.setAddr(localTable.getAddr());
-								});
-								println(language.getString("local.rename.success"), from.getAbsolutePath(), to.getAbsolutePath());
-							} catch (Exception e2) {
-								println(language.getString("local.rename.failure"), from.getAbsolutePath(), to.getAbsolutePath(), e2.getMessage());
-							}
+							showLoading();
+							pool.execute(() -> {
+								File from = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
+								File to = new File(localTable.getAddr() + File.separator + name);
+								try {
+									println(language.getString("local.rename.being"), from.getAbsolutePath(), to.getAbsolutePath());
+									from.renameTo(to);
+									EventQueue.invokeLater(() -> {
+										localTable.setAddr(localTable.getAddr());
+									});
+									println(language.getString("local.rename.success"), from.getAbsolutePath(), to.getAbsolutePath());
+								} catch (Exception e2) {
+									println(language.getString("local.rename.failure"), from.getAbsolutePath(), to.getAbsolutePath(), e2.getMessage());
+								}
+
+								hideLoading();
+							});
 						}
 					});
 					break;
@@ -1764,6 +1798,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					addProgress(false, false, remoteMenu.getRow());
 					break;
 				case KEY_RDELETE:
+					showLoading();
 					pool.execute(() -> {
 						final String f = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
 						if (remoteMenu.getRow().isDir()) {
@@ -1787,6 +1822,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								println(language.getString("remote.delete.file.failure"), f, protocol.getError());
 							}
 						}
+
+						hideLoading();
 					});
 					break;
 				case KEY_RMKDIR:
@@ -1794,6 +1831,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						@Override
 						public void name(String name) {
 							final String f = remoteTable.getAddr() + '/' + name;
+							showLoading();
 							pool.execute(() -> {
 								println(language.getString("remote.mkdir.being"), f);
 								if (protocol.mkdir(f)) {
@@ -1804,6 +1842,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								} else {
 									println(language.getString("remote.mkdir.failure"), f, protocol.getError());
 								}
+
+								hideLoading();
 							});
 						}
 					});
@@ -1814,6 +1854,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						public void name(String name) {
 							final String from = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
 							final String to = remoteTable.getAddr() + '/' + name;
+							showLoading();
 							pool.execute(() -> {
 								println(language.getString("remote.rename.being"), from, to);
 								if (protocol.rename(from, to)) {
@@ -1824,6 +1865,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								} else {
 									println(language.getString("remote.rename.failure"), from, to, protocol.getError());
 								}
+
+								hideLoading();
 							});
 						}
 					});

@@ -28,6 +28,7 @@ public class SettingsDialog extends JDialog {
 	final JPanel panel = new JPanel();
 	final BooleanField watchField;
 	final IntegerField nthreadsField;
+	final BooleanField isScrollTopField;
 	final ButtonForm btn = new ButtonForm();
 	final JButton confirm = new JButton(language.getString("favorite.confirm"));
 	final JButton cancel = new JButton(language.getString("favorite.cancel"));
@@ -40,24 +41,26 @@ public class SettingsDialog extends JDialog {
 		super(frame, model);
 
 		setTitle(language.getString("file.preferences").replaceAll("\\s+\\([^\\)]+\\)$", ""));
-		setSize(300, 40 * 3 + 10 * 4);
+		setSize(300, 40 * 4 + 10 * 5);
 		setLocationRelativeTo(null);
 		setResizable(false);
 		setIconImage(MainFrame.icon.getImage());
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-		panel.setLayout(new GridLayout(3, 1, 10, 10));
+		panel.setLayout(new GridLayout(4, 1, 10, 10));
 		setContentPane(panel);
 
 		watchField = new BooleanField("settings.watch", settings.isWatch(), "settings.watch.help");
 		nthreadsField = new IntegerField("settings.nthreads", settings.getNthreads(), "settings.nthreads.help", 1, Runtime.getRuntime().availableProcessors() * 2, 1);
+		isScrollTopField = new BooleanField("settings.isScrollTop", settings.isScrollTop(), "settings.isScrollTop.help");
 
 		confirm.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				settings.setWatch(watchField.getValue());
 				settings.setNthreads(nthreadsField.getValue());
+				settings.setScrollTop(isScrollTopField.getValue());
 				settings.save();
 
 				SettingsDialog.this.dispose();
@@ -75,6 +78,7 @@ public class SettingsDialog extends JDialog {
 
 		add(watchField);
 		add(nthreadsField);
+		add(isScrollTopField);
 		add(btn);
 
 		for (int i = 0; i < getComponentCount(); i++) {

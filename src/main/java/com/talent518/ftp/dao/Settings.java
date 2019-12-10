@@ -114,6 +114,7 @@ public class Settings {
 	private Map<String, Site> sites = new HashMap<String, Site>();
 	private List<String> siteNames = new ArrayList<String>();
 	private String skin = "skin.autumn";
+	private boolean isScrollTop = false;
 
 	public Locale getLocale() {
 		if (locale == null) {
@@ -178,5 +179,13 @@ public class Settings {
 
 	public void setSkin(String skin) {
 		this.skin = skin;
+	}
+
+	public boolean isScrollTop() {
+		return isScrollTop;
+	}
+
+	public void setScrollTop(boolean isScrollTop) {
+		this.isScrollTop = isScrollTop;
 	}
 }
