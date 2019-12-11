@@ -170,6 +170,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		localTable.setAddr(System.getProperty("user.home"));
 		progressTable.load();
 		processedTable.load();
+
+		initLogBuffer();
 	}
 
 	public IProtocol getProtocol() {
@@ -184,7 +186,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		return localTable.getAddr();
 	}
 
-	private Menu mSite;
+	private Menu mSite, mLang, mSkin;
 
 	private void initMenubar() {
 		Menu mFile = new Menu("menu.file", KeyEvent.VK_F);
@@ -203,12 +205,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		reInitSite();
 		menuBar.add(mSite);
 
-		Menu mLang = new Menu("menu.lang", KeyEvent.VK_L);
+		mLang = new Menu("menu.lang", KeyEvent.VK_L);
 		mLang.add(new MenuItem("lang.english", KeyEvent.VK_E, MenuItem.KEY_ENGLISH).setKeyStroke("ctrl shift E").enabled(!settings.getLang().equals("en"))); // English Language
 		mLang.add(new MenuItem("lang.chinese", KeyEvent.VK_C, MenuItem.KEY_CHINESE).setKeyStroke("ctrl shift C").enabled(!settings.getLang().equals("zh"))); // Chinese Language
 		menuBar.add(mLang);
 
-		Menu mSkin = new Menu("menu.skin", KeyEvent.VK_K);
+		mSkin = new Menu("menu.skin", KeyEvent.VK_K);
 		for (String key : Skin.keys())
 			mSkin.add(new RadioMenuItem(key, key.equals(settings.getSkin()), RadioMenuItem.KEY_SKIN));
 		menuBar.add(mSkin);
@@ -373,6 +375,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	private void closeWindow() {
+		showLoading();
+
 		if (transfer.isRunning()) {
 			transfer.stop(true);
 		} else {
@@ -382,11 +386,20 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 	}
 
+	public void restart() {
+		if (transfer.isRunning())
+			return;
+
+		logTimer.cancel();
+		dispose();
+		LoadFrame.main(new String[0]);
+	}
+
 	@Override
 	public void componentResized(ComponentEvent e) {
 		lrSplit.setDividerLocation(DIVIDER);
 		tbSplit.setDividerLocation(DIVIDER);
-		
+
 		glassPane.setBounds(0, 0, getWidth(), getHeight());
 	}
 
@@ -439,10 +452,32 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		log.debug(e);
 	}
 
+	private final StringBuffer logBuffer = new StringBuffer();
+	private final Timer logTimer = new Timer("logTimer", true);
+	private final TimerTask logTimerTask = new TimerTask() {
+		@Override
+		public void run() {
+			final String log;
+			synchronized (logBuffer) {
+				log = logBuffer.toString();
+				logBuffer.delete(0, log.length());
+			}
+			EventQueue.invokeLater(() -> {
+				logText.append(log);
+			});
+		}
+	};
+
+	private void initLogBuffer() {
+		logTimer.schedule(logTimerTask, 50, 50);
+	}
+
 	public void println(String str) {
-		EventQueue.invokeLater(() -> {
-			logText.append(timeFormat.format(new Date()) + ' ' + str + '\n');
-		});
+		synchronized (logBuffer) {
+			logBuffer.append(timeFormat.format(new Date()));
+			logBuffer.append(str);
+			logBuffer.append('\n');
+		}
 	}
 
 	@SuppressWarnings("resource")
@@ -453,8 +488,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final GlassPane glassPane = new GlassPane();
 
 	private void showLoading() {
-		if(glassPane.isRunning()) return;
-		
+		if (glassPane.isRunning())
+			return;
+
 		glassPane.setBounds(0, 0, getWidth(), getHeight());
 		setGlassPane(glassPane);
 		glassPane.start();
@@ -674,6 +710,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 	}
 
+	private static final Set<String> watchSet = new HashSet<String>();
+
 	public class Transfer {
 		private AtomicBoolean running = new AtomicBoolean(false);
 		private AtomicBoolean diring = new AtomicBoolean(false);
@@ -720,6 +758,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			timer.schedule(new RefreshTask(), 100, 100);
 			timer.schedule(new BytesTask(), 1000, 1000);
 
+			mLang.setEnabled(false);
+			mSkin.setEnabled(false);
+
 			synchronized (lock) {
 				addAll(progressTable.getList());
 			}
@@ -751,8 +792,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				new ProgressQueue(rows).run();
 			}
 		}
-
-		private final Set<String> watchSet = new HashSet<String>();
 
 		public void watch(Site s) {
 			synchronized (watchSet) {
@@ -1369,6 +1408,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 					timer.cancel();
 					timer = null;
+
+					mLang.setEnabled(true);
+					mSkin.setEnabled(true);
 				}
 
 				EventQueue.invokeLater(() -> {
@@ -1519,8 +1561,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_SKIN:
 					settings.setSkin(resKey);
 					settings.save();
-					dispose();
-					LoadFrame.main(new String[0]);
+					restart();
 					break;
 			}
 		}
@@ -1696,14 +1737,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_ENGLISH:
 					settings.setLocale(new Locale("en", "US"));
 					settings.save();
-					dispose();
-					LoadFrame.main(new String[0]);
+					restart();
 					break;
 				case KEY_CHINESE:
 					settings.setLocale(new Locale("zh", "CN"));
 					settings.save();
-					dispose();
-					LoadFrame.main(new String[0]);
+					restart();
 					break;
 				case KEY_PROTOCOL:
 					leftStatus.setText(language.getString("about.protocol.help"));
