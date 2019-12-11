@@ -1541,6 +1541,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 					progressTable.fireTableDataChanged();
 					processedTable.fireTableDataChanged();
+					
+					rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
 
 					if (timer == null && closed.get()) {
 						progressTable.save();
@@ -1548,8 +1550,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						System.exit(0);
 					}
 				});
-
-				rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), queue.size(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
 			}
 		}
 	}
