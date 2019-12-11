@@ -84,10 +84,10 @@ import com.talent518.ftp.gui.dialog.NameDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
 import com.talent518.ftp.gui.dialog.SitesDialog;
 import com.talent518.ftp.gui.filter.FileTypeFilter;
-import com.talent518.ftp.gui.loading.InfiniteProgressPanel;
 import com.talent518.ftp.gui.table.FileTable;
 import com.talent518.ftp.gui.table.FileTable.Row;
 import com.talent518.ftp.gui.table.ProgressTable;
+import com.talent518.ftp.gui.ui.GlassPane;
 import com.talent518.ftp.gui.ui.MainTabbedPaneUI;
 import com.talent518.ftp.protocol.IProtocol;
 import com.talent518.ftp.util.FileUtils;
@@ -385,6 +385,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void componentResized(ComponentEvent e) {
 		lrSplit.setDividerLocation(DIVIDER);
 		tbSplit.setDividerLocation(DIVIDER);
+		
+		glassPane.setBounds(0, 0, getWidth(), getHeight());
 	}
 
 	@Override
@@ -447,10 +449,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		println(new Formatter().format(format, args).toString());
 	}
 
-	private final InfiniteProgressPanel glassPane = new InfiniteProgressPanel();
+	private final GlassPane glassPane = new GlassPane();
 
 	private void showLoading() {
-		glassPane.setBounds(getBounds());
+		if(glassPane.isRunning()) return;
+		
+		glassPane.setBounds(0, 0, getWidth(), getHeight());
 		setGlassPane(glassPane);
 		glassPane.start();
 	}
