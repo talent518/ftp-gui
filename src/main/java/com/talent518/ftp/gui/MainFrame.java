@@ -235,6 +235,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		toolBar.setBorder(BorderFactory.createEmptyBorder());
 		toolBar.setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
 		toolBar.setVisible(false);
+		toolBar.setFloatable(false);
 		content.add(toolBar, BorderLayout.NORTH);
 	}
 
