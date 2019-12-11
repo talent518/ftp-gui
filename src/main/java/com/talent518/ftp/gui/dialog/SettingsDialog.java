@@ -76,13 +76,13 @@ public class SettingsDialog extends JDialog {
 		btn.add(confirm);
 		btn.add(cancel);
 
-		add(watchField);
-		add(nthreadsField);
-		add(isScrollTopField);
-		add(btn);
+		panel.add(watchField);
+		panel.add(nthreadsField);
+		panel.add(isScrollTopField);
+		panel.add(btn);
 
 		for (int i = 0; i < getComponentCount(); i++) {
-			Component com = getComponent(i);
+			Component com = panel.getComponent(i);
 			if (com instanceof FormField) {
 				((FormField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
 			} else if (com instanceof IntegerField) {

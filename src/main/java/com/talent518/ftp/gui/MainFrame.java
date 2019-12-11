@@ -1,6 +1,7 @@
 package com.talent518.ftp.gui;
 
 import java.awt.BorderLayout;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.FlowLayout;
@@ -79,6 +80,7 @@ import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site;
 import com.talent518.ftp.dao.Site.Favorite;
 import com.talent518.ftp.dao.Skin;
+import com.talent518.ftp.gui.dialog.ConfirmDialog;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
 import com.talent518.ftp.gui.dialog.NameDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
@@ -696,6 +698,80 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 			}
 		} else {
+			if (local) {
+				try {
+					Desktop.getDesktop().open(new File(localTable.getPath(r.getName())));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			} else {
+				showLoading();
+				pool.execute(() -> {
+					String remoteFile = remoteTable.getPath(r.getName());
+					File localFile = new File(Settings.ROOT_PATH + File.separator + "files" + File.separator + r.getName());
+					if (localFile.exists()) {
+						localFile.delete();
+					} else {
+						File f = localFile.getParentFile();
+						if (!f.isDirectory()) {
+							f.mkdir();
+						}
+					}
+
+					if (!protocol.isConnected() && protocol.isLogined()) {
+						protocol.logout();
+						println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+						if (protocol.login())
+							println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+						else
+							println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
+					}
+
+					println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+					if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
+						println(language.getString("log.downloaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+						EventQueue.invokeLater(() -> {
+							new ConfirmDialog(MainFrame.this, true).show(language.getString("upload.title"), localFile.getAbsolutePath() + " => " + remoteFile, language.getString("upload.confirm"), new Runnable() {
+								long lastModified = localFile.lastModified();
+
+								public void run() {
+									long lastModified2 = localFile.lastModified();
+
+									if (lastModified == lastModified2) {
+										return;
+									}
+									lastModified = lastModified2;
+
+									if (!protocol.isConnected() && protocol.isLogined()) {
+										protocol.logout();
+										println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+										if (protocol.login())
+											println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+										else
+											println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
+									}
+
+									println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+									if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
+										println(language.getString("log.uploaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+									} else {
+										println(language.getString("log.uploaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+									}
+								}
+							});
+						});
+						try {
+							Desktop.getDesktop().open(localFile);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					} else {
+						println(language.getString("log.downloaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+					}
+
+					hideLoading();
+				});
+			}
 			leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
 		}
 	}
@@ -1718,10 +1794,31 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			log.debug("Performed: resKey = " + resKey + ", resVal = " + resVal + ", mnemonic = " + (char) getMnemonic());
 
 			switch (key) {
-				case KEY_OPEN:
+				case KEY_OPEN: {
+					File f = new File(System.getProperty("user.home"));
+					JFileChooser chooser = new JFileChooser(f);
+					chooser.setDialogTitle(language.getString("chooser.open.title"));
+					chooser.setDialogType(JFileChooser.OPEN_DIALOG);
+					chooser.setApproveButtonText(language.getString("chooser.save"));
+					chooser.addChoosableFileFilter(new FileTypeFilter(".json", language.getString("chooser.json.type")));
+					if (chooser.showOpenDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
+						progressTable.load(chooser.getSelectedFile());
+					}
 					break;
-				case KEY_SAVE:
+				}
+				case KEY_SAVE: {
+					File f = new File(System.getProperty("user.home"));
+					JFileChooser chooser = new JFileChooser(f);
+					chooser.setDialogTitle(language.getString("chooser.save.title"));
+					chooser.setDialogType(JFileChooser.SAVE_DIALOG);
+					chooser.setApproveButtonText(language.getString("chooser.save"));
+					chooser.addChoosableFileFilter(new FileTypeFilter(".json", language.getString("chooser.json.type")));
+					chooser.setSelectedFile(new File(f, "ftp-gui-" + logFormat.format(new Date()) + ".json"));
+					if (chooser.showSaveDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
+						progressTable.save(chooser.getSelectedFile());
+					}
 					break;
+				}
 				case KEY_PREF:
 					new SettingsDialog(MainFrame.this, true).setVisible(true);
 					break;
@@ -1980,7 +2077,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_LOG_SAVE:
 					logSave(new File(Settings.LOG_PATH + "ftp-gui.log"));
 					break;
-				case KEY_LOG_SAVE_AS:
+				case KEY_LOG_SAVE_AS: {
 					File f = new File(System.getProperty("user.home"));
 					JFileChooser chooser = new JFileChooser(f);
 					chooser.setDialogTitle(language.getString("chooser.log.title"));
@@ -1992,6 +2089,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						logSave(chooser.getSelectedFile());
 					}
 					break;
+				}
 				case KEY_LOG_CLEAN:
 					logText.setText("");
 					break;

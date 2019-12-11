@@ -79,9 +79,9 @@ public class FavoriteDialog extends JDialog {
 		btn.add(confirm);
 		btn.add(cancel);
 
-		add(nameField);
-		add(remoteField);
-		add(localField);
-		add(btn);
+		panel.add(nameField);
+		panel.add(remoteField);
+		panel.add(localField);
+		panel.add(btn);
 	}
 }
