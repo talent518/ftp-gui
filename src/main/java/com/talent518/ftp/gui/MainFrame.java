@@ -261,19 +261,19 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			@Override
 			public void removeUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
 			}
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
 				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getText().isEmpty() ? 0 : logText.getLineCount()));
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
 			}
 		});
 		logText.addMouseListener(new MouseAdapter() {
@@ -475,6 +475,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void println(String str) {
 		synchronized (logBuffer) {
 			logBuffer.append(timeFormat.format(new Date()));
+			logBuffer.append(' ');
 			logBuffer.append(str);
 			logBuffer.append('\n');
 		}
@@ -484,6 +485,40 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void println(String format, Object... args) {
 		println(new Formatter().format(format, args).toString());
 	}
+
+	private final IProtocol.DeleteListener remoteDeleteListener = new IProtocol.DeleteListener() {
+		@Override
+		public void unlink(String remote) {
+			println(language.getString("remote.delete.file.success"), remote);
+		}
+
+		@Override
+		public void rmdir(String remote) {
+			println(language.getString("remote.delete.dir.success"), remote);
+		}
+
+		@Override
+		public void ls(String remote) {
+			println(language.getString("log.remoteListed"), remote);
+		}
+	};
+
+	private final FileUtils.DeleteListener localDeleteListener = new FileUtils.DeleteListener() {
+		@Override
+		public void unlink(String remote) {
+			println(language.getString("local.delete.file.success"), remote);
+		}
+
+		@Override
+		public void rmdir(String remote) {
+			println(language.getString("local.delete.dir.success"), remote);
+		}
+
+		@Override
+		public void ls(String remote) {
+			println(language.getString("log.localListed"), remote);
+		}
+	};
 
 	private final GlassPane glassPane = new GlassPane();
 
@@ -1135,6 +1170,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 						if (protocol == null) {
 							protocol = site.create();
+							protocol.setDeleteListener(remoteDeleteListener);
 
 							println(language.getString("log.connecting"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							if (protocol.login())
@@ -1705,6 +1741,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							protocol.dispose();
 						}
 						protocol = settings.getSites().get(resKey).create();
+						protocol.setDeleteListener(remoteDeleteListener);
 						println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 						if (protocol.login()) {
 							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
@@ -1764,7 +1801,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						if (localMenu.getRow().isDir()) {
 							try {
 								println(language.getString("remote.delete.dir.being"), f.getAbsolutePath());
-								org.apache.commons.io.FileUtils.deleteDirectory(f);
+								FileUtils.deleteDirectory(f, localDeleteListener);
 								EventQueue.invokeLater(() -> {
 									localTable.setAddr(localTable.getAddr());
 								});

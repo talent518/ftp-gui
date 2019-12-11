@@ -159,13 +159,19 @@ public class SFTP extends IProtocol {
 		try {
 			List<Row> rows = new ArrayList<Row>();
 			if (ls(remote, rows)) {
+				if(deleteListener != null)
+					deleteListener.ls(remote);
 				for (Row r : rows) {
 					if (r.isDir()) {
 						if (!rmdir(remote + '/' + r.getName()))
 							return false;
+						if(deleteListener != null)
+							deleteListener.rmdir(remote + '/' + r.getName());
 					} else {
 						if (!unlink(remote + '/' + r.getName()))
 							return false;
+						if(deleteListener != null)
+							deleteListener.unlink(remote + '/' + r.getName());
 					}
 				}
 				sftp.rmdir(remote);

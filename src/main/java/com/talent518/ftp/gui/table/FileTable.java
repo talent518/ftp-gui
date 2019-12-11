@@ -9,6 +9,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -627,10 +628,12 @@ public class FileTable extends JPanel {
 			name = f.getName();
 			size = f.length();
 
-			if (f.isDirectory()) {
+			if(Files.isSymbolicLink(f.toPath())) {
+				type = "LNK";
+			} else if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
-			} else {
+			} else if(f.isFile()) {
 				type = "REG";
 			}
 

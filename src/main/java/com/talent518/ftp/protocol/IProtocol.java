@@ -13,6 +13,7 @@ public abstract class IProtocol {
 	protected String error = null;
 	private boolean isLogined = false;
 	protected ProgressListener progressListener = null;
+	protected DeleteListener deleteListener = null;
 
 	public IProtocol(Site s) {
 		site = s;
@@ -51,6 +52,10 @@ public abstract class IProtocol {
 	public void setProgressListener(ProgressListener progressListener) {
 		this.progressListener = progressListener;
 	}
+	
+	public void setDeleteListener(DeleteListener deleteListener) {
+		this.deleteListener = deleteListener;
+	}
 
 	public abstract boolean login();
 
@@ -74,5 +79,11 @@ public abstract class IProtocol {
 	
 	public interface ProgressListener {
 		public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize);
+	}
+	
+	public interface DeleteListener {
+		public void ls(String remote);
+		public void rmdir(String remote);
+		public void unlink(String remote);
 	}
 }

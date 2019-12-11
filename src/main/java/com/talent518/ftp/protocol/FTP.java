@@ -234,13 +234,19 @@ public class FTP extends IProtocol {
 		try {
 			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
 			if(ls(remote, rows)) {
+				if(deleteListener != null)
+					deleteListener.ls(remote);
 				for(FileTable.Row r: rows) {
 					if(r.isDir()) {
 						if(!rmdir(remote + '/' + r.getName()))
 							return false;
+						if(deleteListener != null)
+							deleteListener.rmdir(remote + '/' + r.getName());
 					} else {
 						if(!unlink(remote + '/' + r.getName()))
 							return false;
+						if(deleteListener != null)
+							deleteListener.unlink(remote + '/' + r.getName());
 					}
 				}
 				return ftp.removeDirectory(remote);
