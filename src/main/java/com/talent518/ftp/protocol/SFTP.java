@@ -5,7 +5,10 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
@@ -20,31 +23,72 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import com.jcraft.jsch.SftpProgressMonitor;
+import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.dao.Site;
 import com.talent518.ftp.gui.table.FileTable.Row;
 
 public class SFTP extends IProtocol {
 	private static Logger log = Logger.getLogger(SFTP.class);
+	private static final SimpleDateFormat logFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+	private static PrintWriter printWriter;
+	static {
+		try {
+			printWriter = new PrintWriter(Settings.LOG_PATH + "sftp.log");
+		} catch (FileNotFoundException e) {
+			printWriter = new PrintWriter(System.out);
+		}
+
+		JSch.setLogger(new com.jcraft.jsch.Logger() {
+			@Override
+			public boolean isEnabled(int level) {
+				return true;
+			}
+
+			@Override
+			public void log(int level, String message) {
+				String strLevel = "Unkown";
+				switch (level) {
+					case DEBUG:
+						strLevel = "DEBUG";
+						break;
+					case INFO:
+						strLevel = "INFO";
+						break;
+					case WARN:
+						strLevel = "WARN";
+						break;
+					case ERROR:
+						strLevel = "ERROR";
+						break;
+					case FATAL:
+						strLevel = "FATAL";
+						break;
+				}
+				printWriter.write(logFormat.format(new Date()) + ' ' + strLevel + ' ' + message + '\n');
+				printWriter.flush();
+			}
+		});
+	}
 	private final SftpProgressMonitor monitor = new SftpProgressMonitor() {
 		long written, total;
-		
+
 		@Override
 		public void init(int op, String src, String dest, long max) {
 			total = max;
 			written = 0;
 		}
-		
+
 		@Override
 		public void end() {
-			if(progressListener != null && total != UNKNOWN_SIZE) {
+			if (progressListener != null && total != UNKNOWN_SIZE) {
 				progressListener.bytesTransferred(total, 0, -1);
 			}
 		}
-		
+
 		@Override
 		public boolean count(long count) {
 			written += count;
-			if(progressListener != null) {
+			if (progressListener != null) {
 				progressListener.bytesTransferred(written, 0, -1);
 			}
 			return true;
@@ -119,9 +163,9 @@ public class SFTP extends IProtocol {
 					files.add(new Row(entry));
 			return true;
 		} catch (SftpException e) {
-			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+			if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
 				return true;
-			
+
 			log.error("ls error", e);
 			error = e.getMessage();
 			return false;
@@ -146,7 +190,7 @@ public class SFTP extends IProtocol {
 			sftp.mkdir(remote);
 			return true;
 		} catch (SftpException e) {
-			if(e.id == ChannelSftp.SSH_FX_FAILURE)
+			if (e.id == ChannelSftp.SSH_FX_FAILURE)
 				return true;
 			log.error("mkdir error", e);
 			error = e.getMessage();
@@ -159,18 +203,18 @@ public class SFTP extends IProtocol {
 		try {
 			List<Row> rows = new ArrayList<Row>();
 			if (ls(remote, rows)) {
-				if(deleteListener != null)
+				if (deleteListener != null)
 					deleteListener.ls(remote);
 				for (Row r : rows) {
 					if (r.isDir()) {
 						if (!rmdir(remote + '/' + r.getName()))
 							return false;
-						if(deleteListener != null)
+						if (deleteListener != null)
 							deleteListener.rmdir(remote + '/' + r.getName());
 					} else {
 						if (!unlink(remote + '/' + r.getName()))
 							return false;
-						if(deleteListener != null)
+						if (deleteListener != null)
 							deleteListener.unlink(remote + '/' + r.getName());
 					}
 				}
@@ -180,9 +224,9 @@ public class SFTP extends IProtocol {
 				return false;
 			}
 		} catch (SftpException e) {
-			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+			if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
 				return true;
-			
+
 			log.error("rmdir error", e);
 			error = e.getMessage();
 			return false;
@@ -195,9 +239,9 @@ public class SFTP extends IProtocol {
 			sftp.rm(remote);
 			return true;
 		} catch (SftpException e) {
-			if(e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
+			if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE)
 				return true;
-			
+
 			log.error("unlink error", e);
 			error = e.getMessage();
 			return false;
