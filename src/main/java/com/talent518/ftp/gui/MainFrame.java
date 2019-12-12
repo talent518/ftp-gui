@@ -134,10 +134,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private MenuItem favoriteMenu;
 	private MenuItem localUploadMenu;
+	private MenuItem localUploadAsMenu;
 	private MenuItem localQueueMenu;
+	private MenuItem localQueueAsMenu;
 	private MenuItem progressTransferMenu;
 	private MenuItem progressSuspendMenu;
 	private MenuItem progressCleanMenu;
+	private MenuItem progressDeleteMenu;
 
 	private IProtocol protocol = null;
 
@@ -338,16 +341,22 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private void initPopupMenu() {
 		localUploadMenu = new MenuItem("local.upload", KeyEvent.VK_U, MenuItem.KEY_UPLOAD);
+		localUploadAsMenu = new MenuItem("local.uploadas", KeyEvent.VK_A, MenuItem.KEY_UPLOAD_AS);
 		localQueueMenu = new MenuItem("local.queue", KeyEvent.VK_Q, MenuItem.KEY_LQUEUE);
+		localQueueAsMenu = new MenuItem("local.queueas", KeyEvent.VK_S, MenuItem.KEY_LQUEUE_AS);
 		localMenu.add(localUploadMenu);
+		localMenu.add(localUploadAsMenu);
 		localMenu.add(localQueueMenu);
+		localMenu.add(localQueueAsMenu);
 		localMenu.addSeparator();
 		localMenu.add(new MenuItem("local.delete", KeyEvent.VK_D, MenuItem.KEY_LDELETE));
 		localMenu.add(new MenuItem("local.mkdir", KeyEvent.VK_M, MenuItem.KEY_LMKDIR));
 		localMenu.add(new MenuItem("local.rename", KeyEvent.VK_R, MenuItem.KEY_LRENAME));
 
-		remoteMenu.add(new MenuItem("remote.download", KeyEvent.VK_D, MenuItem.KEY_DOWNLOAD));
+		remoteMenu.add(new MenuItem("remote.download", KeyEvent.VK_L, MenuItem.KEY_DOWNLOAD));
+		remoteMenu.add(new MenuItem("remote.downloadas", KeyEvent.VK_A, MenuItem.KEY_DOWNLOAD_AS));
 		remoteMenu.add(new MenuItem("remote.queue", KeyEvent.VK_Q, MenuItem.KEY_RQUEUE));
+		remoteMenu.add(new MenuItem("remote.queueas", KeyEvent.VK_S, MenuItem.KEY_RQUEUE_AS));
 		remoteMenu.addSeparator();
 		remoteMenu.add(new MenuItem("remote.delete", KeyEvent.VK_D, MenuItem.KEY_RDELETE));
 		remoteMenu.add(new MenuItem("remote.mkdir", KeyEvent.VK_M, MenuItem.KEY_RMKDIR));
@@ -358,10 +367,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		progressSuspendMenu = new MenuItem("progress.suspend", KeyEvent.VK_S, MenuItem.KEY_SUSPEND);
 		progressSuspendMenu.setEnabled(false);
 		progressCleanMenu = new MenuItem("progress.clean", KeyEvent.VK_C, MenuItem.KEY_CLEAN);
+		progressDeleteMenu = new MenuItem("progress.delete", KeyEvent.VK_D, MenuItem.KEY_DELETE);
 		progressMenu.add(progressTransferMenu);
 		progressMenu.add(progressSuspendMenu);
 		progressMenu.addSeparator();
 		progressMenu.add(progressCleanMenu);
+		progressMenu.add(progressDeleteMenu);
 
 		processedMenu.add(new MenuItem("processed.cleanAll", KeyEvent.VK_A, MenuItem.KEY_CLEAN_ALL));
 		processedMenu.addSeparator();
@@ -379,6 +390,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private void closeWindow() {
 		showLoading();
 
+		transfer.unwatch();
+
 		if (transfer.isRunning()) {
 			transfer.stop(true);
 		} else {
@@ -393,6 +406,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			return;
 
 		logTimer.cancel();
+		transfer.stop();
+		transfer.unwatch();
+
 		dispose();
 		LoadFrame.main(new String[0]);
 	}
@@ -611,10 +627,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void rightClicked(boolean isLocal, int index, Row row, MouseEvent e) {
 		if (row == null) {
 			for (int i = 0; i < localMenu.getComponentCount(); i++) {
-				localMenu.getComponent(i).setEnabled(i == 4);
+				localMenu.getComponent(i).setEnabled(i == 6);
 			}
 			for (int i = 0; i < remoteMenu.getComponentCount(); i++) {
-				remoteMenu.getComponent(i).setEnabled(protocol != null && i == 4);
+				remoteMenu.getComponent(i).setEnabled(protocol != null && i == 6);
 			}
 		} else {
 			for (int i = 0; i < localMenu.getComponentCount(); i++) {
@@ -627,7 +643,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (isLocal) {
 			if (row != null) {
 				localUploadMenu.setEnabled(protocol != null);
+				localUploadAsMenu.setEnabled(protocol != null);
 				localQueueMenu.setEnabled(protocol != null);
+				localQueueAsMenu.setEnabled(protocol != null);
 			}
 			localMenu.setRow(row);
 			localMenu.show(e.getComponent(), e.getX(), e.getY());
@@ -781,8 +799,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		if (isProgress) {
 			if (transfer.isRunning()) {
 				progressTransferMenu.setEnabled(false);
-				progressCleanMenu.setEnabled(false);
 				progressSuspendMenu.setEnabled(true);
+				progressCleanMenu.setEnabled(false);
+				progressDeleteMenu.setEnabled(false);
 			} else {
 				progressTransferMenu.setEnabled(false);
 				progressSuspendMenu.setEnabled(false);
@@ -793,6 +812,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				}
 				progressCleanMenu.setEnabled(progressTable.getList().size() > 0);
+				progressDeleteMenu.setEnabled(r != null);
 			}
 
 			progressMenu.setRow(r);
@@ -821,8 +841,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 	}
 
-	private static final Set<String> watchSet = new HashSet<String>();
-
 	public class Transfer {
 		private AtomicBoolean running = new AtomicBoolean(false);
 		private AtomicBoolean diring = new AtomicBoolean(false);
@@ -842,6 +860,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private List<ProgressTable.Row> lock;
 		private Timer timer;
 		private AtomicBoolean closed = new AtomicBoolean(false);
+		private Set<Thread> threads = new HashSet<Thread>();
 
 		public void start() {
 			if (isRunning())
@@ -888,6 +907,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public void stop(boolean b) {
 			running.set(false);
 			closed.set(b);
+			synchronized (threads) {
+				for (Thread t : threads)
+					t.interrupt();
+			}
 		}
 
 		public void add(ProgressTable.Row row) {
@@ -904,12 +927,22 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			}
 		}
 
+		private final Set<String> watchSet = new HashSet<String>();
+		private final Set<Thread> watchThreads = new HashSet<Thread>();
+
 		public void watch(Site s) {
 			synchronized (watchSet) {
 				if (!watchSet.contains(s.getName())) {
 					watchSet.add(s.getName());
 					new WatchThread(s).start();
 				}
+			}
+		}
+
+		public void unwatch() {
+			synchronized (watchThreads) {
+				for (Thread t : watchThreads)
+					t.interrupt();
 			}
 		}
 
@@ -990,10 +1023,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			@Override
 			public final void run() {
+				synchronized (threads) {
+					threads.add(this);
+				}
 				work();
 
 				for (IProtocol p2 : sites.values())
 					p2.dispose();
+
+				synchronized (threads) {
+					threads.remove(this);
+				}
 			}
 
 			protected abstract void work();
@@ -1080,7 +1120,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 					nCount.incrementAndGet();
 
-					if (r.getStatus() == ProgressTable.Row.STATUS_READY) {
+					if (r.getStatus() == ProgressTable.Row.STATUS_READY || r.getStatus() == ProgressTable.Row.STATUS_RUNNING) {
 						if ("REG".equals(r.getType())) {
 							try {
 								queue.put(r);
@@ -1322,7 +1362,13 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				File f;
 				WatchKey key, key2;
 
-				new Thread(runQueue).start();
+				Thread t = new Thread(runQueue);
+				synchronized (watchThreads) {
+					watchThreads.add(this);
+					watchThreads.add(t);
+				}
+
+				t.start();
 
 				try {
 					watchService = FileSystems.getDefault().newWatchService();
@@ -1541,7 +1587,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 					progressTable.fireTableDataChanged();
 					processedTable.fireTableDataChanged();
-					
+
 					rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
 
 					if (timer == null && closed.get()) {
@@ -1703,22 +1749,27 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		// popup local menu
 		public static final int KEY_UPLOAD = 40;
-		public static final int KEY_LQUEUE = 41;
-		public static final int KEY_LDELETE = 42;
-		public static final int KEY_LMKDIR = 43;
-		public static final int KEY_LRENAME = 44;
+		public static final int KEY_UPLOAD_AS = 41;
+		public static final int KEY_LQUEUE = 42;
+		public static final int KEY_LQUEUE_AS = 43;
+		public static final int KEY_LDELETE = 44;
+		public static final int KEY_LMKDIR = 45;
+		public static final int KEY_LRENAME = 46;
 
 		// popup remote menu
 		public static final int KEY_DOWNLOAD = 50;
-		public static final int KEY_RQUEUE = 51;
-		public static final int KEY_RDELETE = 52;
-		public static final int KEY_RMKDIR = 53;
-		public static final int KEY_RRENAME = 54;
+		public static final int KEY_DOWNLOAD_AS = 51;
+		public static final int KEY_RQUEUE = 52;
+		public static final int KEY_RQUEUE_AS = 53;
+		public static final int KEY_RDELETE = 54;
+		public static final int KEY_RMKDIR = 55;
+		public static final int KEY_RRENAME = 56;
 
 		// popup progress menu
 		public static final int KEY_TRANSFER = 60;
 		public static final int KEY_SUSPEND = 61;
 		public static final int KEY_CLEAN = 62;
+		public static final int KEY_DELETE = 63;
 
 		// popup processed menu
 		public static final int KEY_CLEAN_ALL = 70;
@@ -1888,8 +1939,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_UPLOAD:
 					addProgress(true, true, localMenu.getRow());
 					break;
+				case KEY_UPLOAD_AS:
+					new NameDialog(MainFrame.this, true).show(resVal, localMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							addProgress(true, true, localMenu.getRow(), name);
+						}
+					});
+					break;
 				case KEY_LQUEUE:
 					addProgress(false, true, localMenu.getRow());
+					break;
+				case KEY_LQUEUE_AS:
+					new NameDialog(MainFrame.this, true).show(resVal, localMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							addProgress(false, true, localMenu.getRow(), name);
+						}
+					});
 					break;
 				case KEY_LDELETE:
 					showLoading();
@@ -1972,8 +2039,24 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_DOWNLOAD:
 					addProgress(true, false, remoteMenu.getRow());
 					break;
+				case KEY_DOWNLOAD_AS:
+					new NameDialog(MainFrame.this, true).show(resVal, remoteMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							addProgress(true, false, remoteMenu.getRow(), name);
+						}
+					});
+					break;
 				case KEY_RQUEUE:
 					addProgress(false, false, remoteMenu.getRow());
+					break;
+				case KEY_RQUEUE_AS:
+					new NameDialog(MainFrame.this, true).show(resVal, remoteMenu.getRow().getName(), new NameDialog.Listener() {
+						@Override
+						public void name(String name) {
+							addProgress(false, false, remoteMenu.getRow(), name);
+						}
+					});
 					break;
 				case KEY_RDELETE:
 					showLoading();
@@ -2060,6 +2143,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					progressTable.clear(true);
 					progressCleanMenu.setEnabled(false);
 					break;
+				case KEY_DELETE:
+					synchronized (progressTable.getList()) {
+						progressTable.getList().remove(progressMenu.getRow());
+					}
+					progressTable.fireTableDataChanged();
+					break;
 
 				case KEY_CLEAN_ALL:
 					processedTable.clear(true);
@@ -2108,11 +2197,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		private void addProgress(boolean isStart, boolean isLocal, Row r) {
+			addProgress(isStart, isLocal, r, r.getName());
+		}
+
+		private void addProgress(boolean isStart, boolean isLocal, Row r, String as) {
 			ProgressTable.Row progress = new ProgressTable.Row();
 			progress.setSite(protocol.getSite().getName());
-			progress.setLocal(localTable.getPath(r.getName()));
+			progress.setLocal(localTable.getPath(isLocal ? r.getName() : as));
 			progress.setDirection(isLocal);
-			progress.setRemote(remoteTable.getPath(r.getName()));
+			progress.setRemote(remoteTable.getPath(isLocal ? as : r.getName()));
 			progress.setType(r.getType());
 			progress.setSize(r.getSize());
 			progress.setStatus(ProgressTable.Row.STATUS_READY);

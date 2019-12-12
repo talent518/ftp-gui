@@ -65,7 +65,7 @@ public class NameDialog extends JDialog {
 	}
 
 	public void show(String title, String value, Listener l) {
-		setTitle(title);
+		setTitle(title.replaceAll("\\s+\\([A-Z0-9]\\)$", ""));
 		nameField.getField().setText(value);
 		confirm.addActionListener(new ActionListener() {
 			@Override
