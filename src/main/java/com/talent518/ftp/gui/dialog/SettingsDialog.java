@@ -81,14 +81,14 @@ public class SettingsDialog extends JDialog {
 		panel.add(isScrollTopField);
 		panel.add(btn);
 
-		for (int i = 0; i < getComponentCount(); i++) {
+		for (int i = 0; i < panel.getComponentCount(); i++) {
 			Component com = panel.getComponent(i);
 			if (com instanceof FormField) {
-				((FormField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+				((FormField) com).getLabel().setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
 			} else if (com instanceof IntegerField) {
-				((IntegerField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+				((IntegerField) com).getLabel().setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
 			} else if (com instanceof BooleanField) {
-				((BooleanField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+				((BooleanField) com).getLabel().setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
 			}
 		}
 	}

@@ -460,13 +460,13 @@ public class SitesDialog extends JDialog {
 			for (int i = 0; i < panel.getComponentCount(); i++) {
 				Component com = panel.getComponent(i);
 				if (com instanceof FormField) {
-					((FormField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((FormField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
 				} else if (com instanceof IntegerField) {
-					((IntegerField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((IntegerField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
 				} else if (com instanceof BooleanField) {
-					((BooleanField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((BooleanField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
 				} else if (com instanceof SelectField) {
-					((SelectField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((SelectField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
 				}
 			}
 		}
