@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.talent518</groupId>
 	<artifactId>ftp-gui</artifactId>
-	<version>0.0.7</version>
+	<version>0.0.8</version>
 	<name>ftp-gui</name>
 	<description>The ftp and sftp protocol client for gui</description>
 
@@ -18,7 +18,7 @@
 			<artifactId>commons-net</artifactId>
 			<version>3.6</version>
 		</dependency>
-		
+
 		<!-- SFTP协议依赖 -->
 		<!-- https://mvnrepository.com/artifact/com.jcraft/jsch -->
 		<dependency>
@@ -131,5 +131,15 @@
 				</executions>
 			</plugin>
 		</plugins>
+		<resources>
+			<resource>
+				<filtering>true</filtering>
+				<directory>${project.basedir}/src/main/resources</directory>
+				<includes>
+					<include>*.properties</include>
+					<include>icons/*</include>
+				</includes>
+			</resource>
+		</resources>
 	</build>
 </project>
