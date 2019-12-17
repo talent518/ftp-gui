@@ -52,7 +52,7 @@ public class SettingsDialog extends JDialog {
 		setContentPane(panel);
 
 		watchField = new BooleanField("settings.watch", settings.isWatch(), "settings.watch.help");
-		nthreadsField = new IntegerField("settings.nthreads", settings.getNthreads(), "settings.nthreads.help", 1, Runtime.getRuntime().availableProcessors() * 2, 1);
+		nthreadsField = new IntegerField("settings.nthreads", settings.getNthreads(), "settings.nthreads.help", 1, Runtime.getRuntime().availableProcessors() * 4, 1);
 		isScrollTopField = new BooleanField("settings.isScrollTop", settings.isScrollTop(), "settings.isScrollTop.help");
 
 		confirm.addActionListener(new ActionListener() {

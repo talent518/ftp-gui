@@ -861,6 +861,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private Timer timer;
 		private AtomicBoolean closed = new AtomicBoolean(false);
 		private Set<Thread> threads = new HashSet<Thread>();
+		private long beginTime = System.currentTimeMillis();
 
 		public void start() {
 			if (isRunning())
@@ -890,6 +891,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			mLang.setEnabled(false);
 			mSkin.setEnabled(false);
+
+			beginTime = System.currentTimeMillis();
 
 			synchronized (lock) {
 				addAll(progressTable.getList());
@@ -959,9 +962,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			@Override
 			public void run() {
+				ProgressTable.Row p;
 				synchronized (link) {
 					while (!lr.isEmpty()) {
-						link.add(lr.removeFirst());
+						p = lr.removeFirst();
+						if ("DIR".equals(p.getType()))
+							link.addLast(p);
+						else
+							link.addFirst(p);
 					}
 				}
 
@@ -1048,7 +1056,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					try {
 						r = queue.take();
 					} catch (InterruptedException e1) {
-						e1.printStackTrace();
 						break;
 					}
 					if (r.getSite() == null)
@@ -1158,7 +1165,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 													progresses.add(p);
 												}
 												synchronized (link) {
-													link.add(p);
+													if ("DIR".equals(p.getType()))
+														link.addLast(p);
+													else
+														link.addFirst(p);
 												}
 											}
 										}
@@ -1230,7 +1240,10 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 											progresses.add(p);
 										}
 										synchronized (link) {
-											link.add(p);
+											if ("DIR".equals(p.getType()))
+												link.addLast(p);
+											else
+												link.addFirst(p);
 										}
 									}
 									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
@@ -1519,7 +1532,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				String upBytes = FileUtils.formatSize(up);
 				String downBytes = FileUtils.formatSize(down);
 
-				leftStatus.setText(String.format(format, totalBytes, upBytes, downBytes));
+				leftStatus.setText(String.format(format, totalBytes, upBytes, downBytes, (double) (System.currentTimeMillis() - beginTime) / 1000.0f));
 			}
 		}
 

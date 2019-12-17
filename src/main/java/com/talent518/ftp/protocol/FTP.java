@@ -30,8 +30,8 @@ public class FTP extends IProtocol {
 	private final FTPClient ftp;
 	private int keepAliveTimeout = -1;
 	private int controlKeepAliveReplyTimeout = -1;
-	private int defaultTimeout = 30000;
-	private int dataTimeout = -1;
+	private int defaultTimeout = 10000;
+	private int dataTimeout = 10000;
 	private final CopyStreamListener copyStreamListener = new CopyStreamListener() {
 		@Override
 		public void bytesTransferred(CopyStreamEvent event) {
@@ -334,7 +334,7 @@ public class FTP extends IProtocol {
 			boolean ret = ftp.logout();
 
 			ftp.disconnect();
-
+			
 			setLogined(false);
 
 			return ret;
@@ -346,7 +346,7 @@ public class FTP extends IProtocol {
 	}
 
 	public void dispose() {
-		if (ftp != null && ftp.isConnected()) {
+		if (ftp.isConnected()) {
 			logout();
 		}
 	}
