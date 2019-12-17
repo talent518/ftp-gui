@@ -541,16 +541,20 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private final GlassPane glassPane = new GlassPane();
 
 	private void showLoading() {
-		if (glassPane.isRunning())
-			return;
+		EventQueue.invokeLater(() -> {
+			if (glassPane.isRunning())
+				return;
 
-		glassPane.setBounds(0, 0, getWidth(), getHeight());
-		setGlassPane(glassPane);
-		glassPane.start();
+			glassPane.setBounds(0, 0, getWidth(), getHeight());
+			setGlassPane(glassPane);
+			glassPane.start();
+		});
 	}
 
 	private void hideLoading() {
-		glassPane.stop();
+		EventQueue.invokeLater(() -> {
+			glassPane.stop();
+		});
 	}
 
 	@Override
@@ -918,15 +922,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		public void add(ProgressTable.Row row) {
 			if (isRunning()) {
-				// pool.execute(new ProgressQueue(row));
-				new ProgressQueue(row).run();
+				pool.execute(new ProgressQueue(row));
+				// new ProgressQueue(row).run();
 			}
 		}
 
 		public void addAll(List<ProgressTable.Row> rows) {
 			if (isRunning()) {
-				// pool.execute(new ProgressQueue(rows));
-				new ProgressQueue(rows).run();
+				pool.execute(new ProgressQueue(rows));
+				// new ProgressQueue(rows).run();
 			}
 		}
 
@@ -1122,153 +1126,149 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						else
 							r = link.removeFirst();
 					}
-					if (r == null || r.getSite() == null)
+					if (r == null || r.getSite() == null || (r.getStatus() != ProgressTable.Row.STATUS_READY && r.getStatus() != ProgressTable.Row.STATUS_RUNNING))
 						break;
 
 					nCount.incrementAndGet();
 
-					if (r.getStatus() == ProgressTable.Row.STATUS_READY || r.getStatus() == ProgressTable.Row.STATUS_RUNNING) {
-						if ("REG".equals(r.getType())) {
-							try {
-								queue.put(r);
-							} catch (InterruptedException e) {
-								e.printStackTrace();
+					if ("REG".equals(r.getType())) {
+						try {
+							queue.put(r);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					} else if ("DIR".equals(r.getType())) {
+						synchronized (lock) {
+							r.setStatus(ProgressTable.Row.STATUS_RUNNING);
+						}
+						nRunning.incrementAndGet();
+						if (r.isDirection()) {
+							if (isSkip()) {
+								nRunning.decrementAndGet();
+								nSkip.incrementAndGet();
+								continue;
 							}
-						} else if ("DIR".equals(r.getType())) {
-							synchronized (lock) {
-								r.setStatus(ProgressTable.Row.STATUS_RUNNING);
-							}
-							nRunning.incrementAndGet();
-							if (r.isDirection()) {
-								if (isSkip()) {
-									nRunning.decrementAndGet();
-									nSkip.incrementAndGet();
-									continue;
-								}
-								println(language.getString("log.mkdiring"), r.getRemote(), r.getSite());
-								if (protocol.mkdir(r.getRemote())) {
-									f = new File(r.getLocal());
-									if (f.isDirectory()) {
-										File[] ls = f.listFiles();
-										if (ls != null) {
-											for (File f2 : ls) {
-												FileTable.Row r2 = new FileTable.Row(f2);
-												p = new ProgressTable.Row();
-												p.setSite(r.getSite());
-												p.setLocal(r.getLocal() + File.separator + r2.getName());
-												p.setDirection(true);
-												p.setRemote(r.getRemote() + "/" + r2.getName());
-												p.setType(r2.getType());
-												p.setSize(r2.getSize());
-												p.setStatus(ProgressTable.Row.STATUS_READY);
-												synchronized (progresses) {
-													progresses.add(p);
-												}
-												synchronized (link) {
-													if ("DIR".equals(p.getType()))
-														link.addLast(p);
-													else
-														link.addFirst(p);
-												}
+							println(language.getString("log.mkdiring"), r.getRemote(), r.getSite());
+							if (protocol.mkdir(r.getRemote())) {
+								f = new File(r.getLocal());
+								if (f.isDirectory()) {
+									File[] ls = f.listFiles();
+									if (ls != null) {
+										for (File f2 : ls) {
+											FileTable.Row r2 = new FileTable.Row(f2);
+											p = new ProgressTable.Row();
+											p.setSite(r.getSite());
+											p.setLocal(r.getLocal() + File.separator + r2.getName());
+											p.setDirection(true);
+											p.setRemote(r.getRemote() + "/" + r2.getName());
+											p.setType(r2.getType());
+											p.setSize(r2.getSize());
+											p.setStatus(ProgressTable.Row.STATUS_READY);
+											synchronized (progresses) {
+												progresses.add(p);
+											}
+											synchronized (link) {
+												if ("DIR".equals(p.getType()))
+													link.addLast(p);
+												else
+													link.addFirst(p);
 											}
 										}
-
-										println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-										}
-										nCompleted.incrementAndGet();
-									} else {
-										println(language.getString("log.localDirList"), r.getLocal());
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_ERROR);
-										}
-										nError.incrementAndGet();
 									}
+
+									println(language.getString("log.mkdired"), r.getRemote(), r.getSite());
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+									}
+									nCompleted.incrementAndGet();
 								} else {
-									println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
+									println(language.getString("log.localDirList"), r.getLocal());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
 									nError.incrementAndGet();
 								}
 							} else {
-								f = new File(r.getLocal());
-								if (f.exists()) {
-									if (!f.isDirectory()) {
-										println(language.getString("log.notLocalDir"), r.getLocal());
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_ERROR);
-										}
-										nError.incrementAndGet();
-										nRunning.decrementAndGet();
-										continue;
-									}
-								} else {
-									try {
-										f.mkdir();
-										println(language.getString("log.lmkdired"), r.getLocal());
-									} catch (Exception e) {
-										println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
-										synchronized (lock) {
-											r.setStatus(ProgressTable.Row.STATUS_ERROR);
-										}
-										nError.incrementAndGet();
-										nRunning.decrementAndGet();
-										continue;
-									}
+								println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
+								synchronized (lock) {
+									r.setStatus(ProgressTable.Row.STATUS_ERROR);
 								}
-
-								if (isSkip()) {
-									nRunning.decrementAndGet();
-									nSkip.incrementAndGet();
-									continue;
-								}
-
-								println(language.getString("log.dirlisting"), r.getRemote(), r.getSite());
-								if (protocol.ls(r.getRemote(), files)) {
-									for (FileTable.Row r2 : files) {
-										p = new ProgressTable.Row();
-										p.setSite(r.getSite());
-										p.setLocal(r.getLocal() + File.separator + r2.getName());
-										p.setDirection(false);
-										p.setRemote(r.getRemote() + "/" + r2.getName());
-										p.setType(r2.getType());
-										p.setSize(r2.getSize());
-										p.setStatus(ProgressTable.Row.STATUS_READY);
-										synchronized (progresses) {
-											progresses.add(p);
-										}
-										synchronized (link) {
-											if ("DIR".equals(p.getType()))
-												link.addLast(p);
-											else
-												link.addFirst(p);
-										}
-									}
-									println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
-									synchronized (lock) {
-										r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
-									}
-									nCompleted.incrementAndGet();
-								} else {
-									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
+								nError.incrementAndGet();
+							}
+						} else {
+							f = new File(r.getLocal());
+							if (f.exists()) {
+								if (!f.isDirectory()) {
+									println(language.getString("log.notLocalDir"), r.getLocal());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
 									nError.incrementAndGet();
+									nRunning.decrementAndGet();
+									continue;
 								}
-								files.clear();
+							} else {
+								try {
+									f.mkdir();
+									println(language.getString("log.lmkdired"), r.getLocal());
+								} catch (Exception e) {
+									println(language.getString("log.lmkdirerr"), r.getLocal(), e.getMessage());
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_ERROR);
+									}
+									nError.incrementAndGet();
+									nRunning.decrementAndGet();
+									continue;
+								}
 							}
-							nRunning.decrementAndGet();
-						} else {
-							println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
-							synchronized (lock) {
-								r.setStatus(ProgressTable.Row.STATUS_ERROR);
+
+							if (isSkip()) {
+								nRunning.decrementAndGet();
+								nSkip.incrementAndGet();
+								continue;
 							}
-							nError.incrementAndGet();
+
+							println(language.getString("log.dirlisting"), r.getRemote(), r.getSite());
+							if (protocol.ls(r.getRemote(), files)) {
+								for (FileTable.Row r2 : files) {
+									p = new ProgressTable.Row();
+									p.setSite(r.getSite());
+									p.setLocal(r.getLocal() + File.separator + r2.getName());
+									p.setDirection(false);
+									p.setRemote(r.getRemote() + "/" + r2.getName());
+									p.setType(r2.getType());
+									p.setSize(r2.getSize());
+									p.setStatus(ProgressTable.Row.STATUS_READY);
+									synchronized (progresses) {
+										progresses.add(p);
+									}
+									synchronized (link) {
+										if ("DIR".equals(p.getType()))
+											link.addLast(p);
+										else
+											link.addFirst(p);
+									}
+								}
+								println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
+								synchronized (lock) {
+									r.setStatus(ProgressTable.Row.STATUS_COMPLETED);
+								}
+								nCompleted.incrementAndGet();
+							} else {
+								println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
+								synchronized (lock) {
+									r.setStatus(ProgressTable.Row.STATUS_ERROR);
+								}
+								nError.incrementAndGet();
+							}
+							files.clear();
 						}
+						nRunning.decrementAndGet();
 					} else {
+						println(language.getString("log.notSupportType"), r.getType(), r.getLocal());
+						synchronized (lock) {
+							r.setStatus(ProgressTable.Row.STATUS_SKIP);
+						}
 						nSkip.incrementAndGet();
 					}
 				}
@@ -1541,7 +1541,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			private final Predicate<ProgressTable.Row> filter = new Predicate<ProgressTable.Row>() {
 				@Override
 				public boolean test(ProgressTable.Row t) {
-					if (t.getStatus() == ProgressTable.Row.STATUS_COMPLETED || t.getStatus() == ProgressTable.Row.STATUS_ERROR) {
+					if (t.getStatus() != ProgressTable.Row.STATUS_READY && t.getStatus() != ProgressTable.Row.STATUS_RUNNING) {
 						processedTable.getList().add(t);
 						return true;
 					} else {
@@ -1584,31 +1584,31 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					mSkin.setEnabled(true);
 				}
 
+				final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+				synchronized (progresses) {
+					while (!progresses.isEmpty())
+						list.add(progresses.removeFirst());
+				}
+
+				synchronized (lock) {
+					synchronized (processedTable.getList()) {
+						list.removeIf(filter);
+						progressTable.getList().removeIf(filter);
+					}
+					progressTable.getList().addAll(list);
+				}
+				progressTable.fireTableDataChanged();
+				processedTable.fireTableDataChanged();
+
 				EventQueue.invokeLater(() -> {
-					final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
-					synchronized (progresses) {
-						while (!progresses.isEmpty())
-							list.add(progresses.removeFirst());
-					}
-
-					synchronized (lock) {
-						synchronized (processedTable.getList()) {
-							list.removeIf(filter);
-							progressTable.getList().removeIf(filter);
-						}
-						progressTable.getList().addAll(list);
-					}
-					progressTable.fireTableDataChanged();
-					processedTable.fireTableDataChanged();
-
 					rightStatus.setText(String.format(language.getString("status.progress"), nThread.get(), nCount.get(), nSkip.get(), nReady.get(), nRunning.get(), nCompleted.get(), nError.get()));
-
-					if (timer == null && closed.get()) {
-						progressTable.save();
-						processedTable.save();
-						System.exit(0);
-					}
 				});
+
+				if (timer == null && closed.get()) {
+					progressTable.save();
+					processedTable.save();
+					System.exit(0);
+				}
 			}
 		}
 	}
@@ -2236,69 +2236,81 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		private void cleanProgress(final int status) {
-			synchronized (processedTable.getList()) {
-				processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
-					@Override
-					public boolean test(ProgressTable.Row t) {
-						return t.getStatus() == status;
-					}
-				});
-			}
-			processedTable.fireTableDataChanged();
+			showLoading();
+			pool.execute(() -> {
+				synchronized (processedTable.getList()) {
+					processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
+						@Override
+						public boolean test(ProgressTable.Row t) {
+							return t.getStatus() == status;
+						}
+					});
+				}
+				processedTable.fireTableDataChanged();
+				hideLoading();
+			});
 		}
 
 		private void errorRetransfer() {
-			final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
-			synchronized (processedTable.getList()) {
-				processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
-					@Override
-					public boolean test(ProgressTable.Row t) {
-						if (t.getStatus() == ProgressTable.Row.STATUS_ERROR) {
-							t.setWritten(0);
-							t.setProgress(0);
-							t.setStatus(ProgressTable.Row.STATUS_READY);
-							list.add(t);
-							return true;
+			showLoading();
+			pool.execute(() -> {
+				final List<ProgressTable.Row> list = new ArrayList<ProgressTable.Row>();
+				synchronized (processedTable.getList()) {
+					processedTable.getList().removeIf(new Predicate<ProgressTable.Row>() {
+						@Override
+						public boolean test(ProgressTable.Row t) {
+							if (t.getStatus() == ProgressTable.Row.STATUS_ERROR) {
+								t.setWritten(0);
+								t.setProgress(0);
+								t.setStatus(ProgressTable.Row.STATUS_READY);
+								list.add(t);
+								return true;
+							}
+							return false;
 						}
-						return false;
-					}
-				});
-			}
-			synchronized (progressTable.getList()) {
-				progressTable.getList().addAll(list);
-			}
-			progressTable.fireTableDataChanged();
-			processedTable.fireTableDataChanged();
-			if (!transfer.isRunning()) {
-				transfer.start();
-			} else {
-				transfer.addAll(list);
-			}
+					});
+				}
+				synchronized (progressTable.getList()) {
+					progressTable.getList().addAll(list);
+				}
+				progressTable.fireTableDataChanged();
+				processedTable.fireTableDataChanged();
+				if (!transfer.isRunning()) {
+					transfer.start();
+				} else {
+					transfer.addAll(list);
+				}
+				hideLoading();
+			});
 		}
 
 		private void logSave(File f) {
-			FileWriter writer = null;
-			try {
-				File path = f.getParentFile();
-				if (!path.isDirectory()) {
-					path.mkdir();
-				}
-				writer = new FileWriter(f);
-				writer.write(logText.getText());
-				writer.flush();
-				logText.setText("");
-				log.info("Save " + f.getName() + " success");
-			} catch (Throwable t) {
-				log.error("Save " + f.getName() + " failure", t);
-			} finally {
-				if (writer != null) {
-					try {
-						writer.close();
-					} catch (IOException t) {
-						log.error("Close " + f.getName() + " writer failure", t);
+			showLoading();
+			pool.execute(() -> {
+				FileWriter writer = null;
+				try {
+					File path = f.getParentFile();
+					if (!path.isDirectory()) {
+						path.mkdir();
+					}
+					writer = new FileWriter(f);
+					writer.write(logText.getText());
+					writer.flush();
+					logText.setText("");
+					log.info("Save " + f.getName() + " success");
+				} catch (Throwable t) {
+					log.error("Save " + f.getName() + " failure", t);
+				} finally {
+					if (writer != null) {
+						try {
+							writer.close();
+						} catch (IOException t) {
+							log.error("Close " + f.getName() + " writer failure", t);
+						}
 					}
 				}
-			}
+				hideLoading();
+			});
 		}
 	}
 

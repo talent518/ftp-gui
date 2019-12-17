@@ -21,14 +21,15 @@ public class StatusColumn extends AbstractCellEditor implements TableCellRendere
 	private final ResourceBundle language = Settings.language();
 	private final Color transparent = new Color(0, 0, 0, 0);
 	// @formatter:off
-		private final String[] statusTexts = {
-			language.getString("status.running"),
-			language.getString("status.ready"),
-			language.getString("status.completed"),
-			language.getString("status.error")
-		};
-		// @formatter:on
-	private final Color[] colors = { new Color(0x999999), new Color(0x333333), new Color(0x339933), new Color(0xcc3300) };
+	private final String[] statusTexts = {
+		language.getString("status.running"),
+		language.getString("status.ready"),
+		language.getString("status.completed"),
+		language.getString("status.skip"),
+		language.getString("status.error")
+	};
+	// @formatter:on
+	private final Color[] colors = { new Color(0x999999), new Color(0x333333), new Color(0x339933), new Color(0x666666), new Color(0xcc3300) };
 	private final JPanel panel;
 	private final JLabel status;
 

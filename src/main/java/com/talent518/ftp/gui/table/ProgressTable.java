@@ -556,10 +556,11 @@ public class ProgressTable extends JPanel {
 	}
 
 	public static class Row {
-		public static final int STATUS_READY = 1;
 		public static final int STATUS_RUNNING = 0;
+		public static final int STATUS_READY = 1;
 		public static final int STATUS_COMPLETED = 2;
-		public static final int STATUS_ERROR = 3;
+		public static final int STATUS_SKIP = 3;
+		public static final int STATUS_ERROR = 4;
 
 		private String site;
 		private String local;
