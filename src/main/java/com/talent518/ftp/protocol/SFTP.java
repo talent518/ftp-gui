@@ -124,6 +124,8 @@ public class SFTP extends IProtocol {
 
 			Properties config = new Properties();
 			config.put("StrictHostKeyChecking", "no");
+			config.put("ConnectTimeout", "10000");
+			config.put("ServerAliveInterval", "10000");
 
 			session.setConfig(config);
 			session.connect();
