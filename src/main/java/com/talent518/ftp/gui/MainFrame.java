@@ -1089,9 +1089,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_READY);
 								}
-								nRunning.decrementAndGet();
 								try {
 									queue.put(r);
+									nRunning.decrementAndGet();
 									continue;
 								} catch (InterruptedException e) {
 								}
@@ -1115,9 +1115,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_READY);
 								}
-								nRunning.decrementAndGet();
 								try {
 									queue.put(r);
+									nRunning.decrementAndGet();
 									continue;
 								} catch (InterruptedException e) {
 								}
@@ -1219,6 +1219,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										link.addFirst(r);
 									}
 									nCount.decrementAndGet();
+									nRunning.decrementAndGet();
 									continue;
 								}
 								println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
@@ -1295,6 +1296,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										link.addFirst(r);
 									}
 									nCount.decrementAndGet();
+									nRunning.decrementAndGet();
 									continue;
 								}
 								println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
@@ -2115,7 +2117,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				case KEY_RDELETE:
 					showLoading();
 					pool.execute(() -> {
-						final String f = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
+						final String f = remoteTable.getPath(remoteMenu.getRow().getName());
 						if (remoteMenu.getRow().isDir()) {
 							println(language.getString("remote.delete.dir.being"), f);
 							if (protocol.rmdir(f)) {
@@ -2145,7 +2147,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new NameDialog(MainFrame.this, true).show(resVal, new NameDialog.Listener() {
 						@Override
 						public void name(String name) {
-							final String f = remoteTable.getAddr() + '/' + name;
+							final String f = remoteTable.getPath(name);
 							showLoading();
 							pool.execute(() -> {
 								println(language.getString("remote.mkdir.being"), f);
@@ -2167,8 +2169,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new NameDialog(MainFrame.this, true).show(resVal, remoteMenu.getRow().getName(), new NameDialog.Listener() {
 						@Override
 						public void name(String name) {
-							final String from = remoteTable.getAddr() + '/' + remoteMenu.getRow().getName();
-							final String to = remoteTable.getAddr() + '/' + name;
+							final String from = remoteTable.getPath(remoteMenu.getRow().getName());
+							final String to = remoteTable.getPath(name);
 							showLoading();
 							pool.execute(() -> {
 								println(language.getString("remote.rename.being"), from, to);

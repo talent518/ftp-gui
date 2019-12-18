@@ -18,7 +18,7 @@ public class GlassPane extends JComponent implements ActionListener, MouseListen
 	private static final long serialVersionUID = -2778776848711363176L;
 	private static ImageIcon icon = new ImageIcon(GlassPane.class.getResource("/icons/loading.png"));
 
-	private final int DELAY = 20;
+	private final int DELAY = 50;
 	private final Timer timer = new Timer(DELAY, this);
 	private final Color bgColor = new Color(0x66000000, true);
 	private final RenderingHints hints;

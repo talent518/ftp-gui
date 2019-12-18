@@ -628,12 +628,12 @@ public class FileTable extends JPanel {
 			name = f.getName();
 			size = f.length();
 
-			if(Files.isSymbolicLink(f.toPath())) {
+			if (Files.isSymbolicLink(f.toPath())) {
 				type = "LNK";
 			} else if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
-			} else if(f.isFile()) {
+			} else if (f.isFile()) {
 				type = "REG";
 			}
 

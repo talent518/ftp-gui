@@ -108,7 +108,7 @@ public class FTP extends IProtocol {
 
 	public boolean login() {
 		error = null;
-		
+
 		try {
 			if (site.getPort() > 0) {
 				ftp.connect(site.getHost(), site.getPort());
@@ -165,7 +165,7 @@ public class FTP extends IProtocol {
 
 	public String pwd() {
 		error = null;
-		
+
 		try {
 			return ftp.printWorkingDirectory();
 		} catch (IOException e) {
@@ -177,7 +177,7 @@ public class FTP extends IProtocol {
 
 	public boolean ls(String remote, List<FileTable.Row> rows) {
 		error = null;
-		
+
 		try {
 			FTPFile[] files;
 			if (site.isMlsd()) {
@@ -200,11 +200,11 @@ public class FTP extends IProtocol {
 			return false;
 		}
 	}
-	
+
 	@Override
 	public boolean rename(String from, String to) {
 		error = null;
-		
+
 		try {
 			return ftp.rename(from, to);
 		} catch (IOException e) {
@@ -217,7 +217,7 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean mkdir(String remote) {
 		error = null;
-		
+
 		try {
 			return ftp.makeDirectory(remote);
 		} catch (IOException e) {
@@ -230,32 +230,37 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean rmdir(String remote) {
 		error = null;
-		
+		boolean hidden = ftp.getListHiddenFiles();
+
 		try {
 			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
-			if(ls(remote, rows)) {
-				if(deleteListener != null)
+			ftp.setListHiddenFiles(true);
+			if (ls(remote, rows)) {
+				ftp.setListHiddenFiles(hidden);
+				if (deleteListener != null)
 					deleteListener.ls(remote);
-				for(FileTable.Row r: rows) {
-					if(r.isDir()) {
-						if(!rmdir(remote + '/' + r.getName()))
+				for (FileTable.Row r : rows) {
+					if (r.isDir()) {
+						if (!rmdir(remote + '/' + r.getName()))
 							return false;
-						if(deleteListener != null)
+						if (deleteListener != null)
 							deleteListener.rmdir(remote + '/' + r.getName());
 					} else {
-						if(!unlink(remote + '/' + r.getName()))
+						if (!unlink(remote + '/' + r.getName()))
 							return false;
-						if(deleteListener != null)
+						if (deleteListener != null)
 							deleteListener.unlink(remote + '/' + r.getName());
 					}
 				}
 				return ftp.removeDirectory(remote);
 			} else {
+				ftp.setListHiddenFiles(hidden);
 				return false;
 			}
 		} catch (IOException e) {
 			log.error("rmdir " + remote + " failure", e);
 			error = e.getMessage();
+			ftp.setListHiddenFiles(hidden);
 			return false;
 		}
 	}
@@ -263,7 +268,7 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean unlink(String remote) {
 		error = null;
-		
+
 		try {
 			return ftp.deleteFile(remote);
 		} catch (IOException e) {
@@ -327,14 +332,14 @@ public class FTP extends IProtocol {
 
 	public boolean logout() {
 		error = null;
-		
+
 		try {
 			ftp.noop();
 
 			boolean ret = ftp.logout();
 
 			ftp.disconnect();
-			
+
 			setLogined(false);
 
 			return ret;
