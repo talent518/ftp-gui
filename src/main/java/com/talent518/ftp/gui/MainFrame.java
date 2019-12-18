@@ -1085,6 +1085,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							}
 							nCompleted.incrementAndGet();
 						} else {
+							if (r.tries()) {
+								synchronized (lock) {
+									r.setStatus(ProgressTable.Row.STATUS_READY);
+								}
+								nRunning.decrementAndGet();
+								try {
+									queue.put(r);
+									continue;
+								} catch (InterruptedException e) {
+								}
+							}
 							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
@@ -1100,6 +1111,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							}
 							nCompleted.incrementAndGet();
 						} else {
+							if (r.tries()) {
+								synchronized (lock) {
+									r.setStatus(ProgressTable.Row.STATUS_READY);
+								}
+								nRunning.decrementAndGet();
+								try {
+									queue.put(r);
+									continue;
+								} catch (InterruptedException e) {
+								}
+							}
 							println(language.getString("log.downloaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							synchronized (lock) {
 								r.setStatus(ProgressTable.Row.STATUS_ERROR);
@@ -1189,6 +1211,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									nError.incrementAndGet();
 								}
 							} else {
+								if (r.tries()) {
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_READY);
+									}
+									synchronized (link) {
+										link.addFirst(r);
+									}
+									nCount.decrementAndGet();
+									continue;
+								}
 								println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_ERROR);
@@ -1255,6 +1287,16 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								}
 								nCompleted.incrementAndGet();
 							} else {
+								if (r.tries()) {
+									synchronized (lock) {
+										r.setStatus(ProgressTable.Row.STATUS_READY);
+									}
+									synchronized (link) {
+										link.addFirst(r);
+									}
+									nCount.decrementAndGet();
+									continue;
+								}
 								println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_ERROR);
@@ -1537,7 +1579,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		private class RefreshTask extends TimerTask {
-			private final int NTHREAD = settings.getNthreads();
 			private final Predicate<ProgressTable.Row> filter = new Predicate<ProgressTable.Row>() {
 				@Override
 				public boolean test(ProgressTable.Row t) {
@@ -1558,7 +1599,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 
 					if (running.get())
-						for (int i = nThread.get(); i < NTHREAD && i < queue.size(); i++)
+						for (int i = nThread.get(); i < settings.getNthreads() && i < queue.size(); i++)
 							new FileThread().start();
 					else {
 						if (diring.get() && queue.remainingCapacity() == 0)
@@ -1567,7 +1608,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							} catch (InterruptedException e1) {
 								e1.printStackTrace();
 							}
-						for (int i = queue.size(); i < NTHREAD && i < nThread.get(); i++)
+						for (int i = queue.size(); i < settings.getNthreads() && i < nThread.get(); i++)
 							try {
 								queue.put(new ProgressTable.Row());
 							} catch (InterruptedException e) {
@@ -2263,6 +2304,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								t.setWritten(0);
 								t.setProgress(0);
 								t.setStatus(ProgressTable.Row.STATUS_READY);
+								t.setTries();
 								list.add(t);
 								return true;
 							}

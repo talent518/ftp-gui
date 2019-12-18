@@ -115,6 +115,7 @@ public class Settings {
 	private List<String> siteNames = new ArrayList<String>();
 	private String skin = "skin.autumn";
 	private boolean isScrollTop = false;
+	private int tries = 3;
 
 	public Locale getLocale() {
 		if (locale == null) {
@@ -156,7 +157,7 @@ public class Settings {
 	}
 
 	public int getNthreads() {
-		if(nthreads <= 0)
+		if (nthreads <= 0)
 			nthreads = 1;
 		return nthreads;
 	}
@@ -187,5 +188,13 @@ public class Settings {
 
 	public void setScrollTop(boolean isScrollTop) {
 		this.isScrollTop = isScrollTop;
+	}
+
+	public int getTries() {
+		return tries;
+	}
+
+	public void setTries(int tries) {
+		this.tries = tries;
 	}
 }

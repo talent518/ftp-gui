@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.talent518</groupId>
 	<artifactId>ftp-gui</artifactId>
-	<version>0.1.1</version>
+	<version>0.1.2</version>
 	<name>ftp-gui</name>
 	<description>The ftp and sftp protocol client for gui</description>
 

@@ -572,6 +572,7 @@ public class ProgressTable extends JPanel {
 		private int status;
 
 		private long written;
+		private int tries = 0;
 
 		public Row() {
 			super();
@@ -718,6 +719,14 @@ public class ProgressTable extends JPanel {
 
 		public void addWritten(long written) {
 			setWritten(this.written + written);
+		}
+		
+		public boolean tries() {
+			return ++tries < Settings.instance().getTries();
+		}
+		
+		public void setTries() {
+			tries = 0;
 		}
 
 		@Override
