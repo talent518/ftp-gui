@@ -769,11 +769,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							protocol.setResume(resume);
 							protocol.setProgressListener(new IProtocol.ProgressListener() {
 								long precent = 0;
-								
+
 								@Override
 								public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
 									long p = 100 * totalBytesTransferred / r.getSize();
-									if(p != precent) {
+									if (p != precent) {
 										precent = p;
 										leftStatus.setText(localFile.getAbsolutePath() + " - " + FileUtils.formatSize(totalBytesTransferred) + " - " + precent + '%');
 									}
@@ -2360,7 +2360,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				progressTable.fireTableDataChanged();
 				processedTable.fireTableDataChanged();
 				if (!transfer.isRunning()) {
-					transfer.start();
+					EventQueue.invokeLater(() -> {
+						transfer.start();
+					});
 				} else {
 					transfer.addAll(list);
 				}
