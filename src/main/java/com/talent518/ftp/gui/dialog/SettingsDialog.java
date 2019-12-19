@@ -30,6 +30,7 @@ public class SettingsDialog extends JDialog {
 	final IntegerField nthreadsField;
 	final BooleanField isScrollTopField;
 	final IntegerField triesField;
+	final IntegerField logLinesField;
 	final ButtonForm btn = new ButtonForm();
 	final JButton confirm = new JButton(language.getString("favorite.confirm"));
 	final JButton cancel = new JButton(language.getString("favorite.cancel"));
@@ -42,20 +43,21 @@ public class SettingsDialog extends JDialog {
 		super(frame, model);
 
 		setTitle(language.getString("file.preferences").replaceAll("\\s+\\([^\\)]+\\)$", ""));
-		setSize(300, 40 * 5 + 10 * 6);
+		setSize(300, 40 * 6 + 10 * 7);
 		setLocationRelativeTo(null);
 		setResizable(false);
 		setIconImage(MainFrame.icon.getImage());
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-		panel.setLayout(new GridLayout(5, 1, 10, 10));
+		panel.setLayout(new GridLayout(6, 1, 10, 10));
 		setContentPane(panel);
 
 		watchField = new BooleanField("settings.watch", settings.isWatch(), "settings.watch.help");
 		nthreadsField = new IntegerField("settings.nthreads", settings.getNthreads(), "settings.nthreads.help", 1, Runtime.getRuntime().availableProcessors() * 4, 1);
 		isScrollTopField = new BooleanField("settings.isScrollTop", settings.isScrollTop(), "settings.isScrollTop.help");
 		triesField = new IntegerField("settings.tries", settings.getTries(), "settings.tries.help", 0, 10, 1);
+		logLinesField = new IntegerField("settings.logLines", settings.getLogLines(), "settings.logLines.help", 10000, 1000000, 1000);
 
 		confirm.addActionListener(new ActionListener() {
 			@Override
@@ -64,6 +66,7 @@ public class SettingsDialog extends JDialog {
 				settings.setNthreads(nthreadsField.getValue());
 				settings.setScrollTop(isScrollTopField.getValue());
 				settings.setTries(triesField.getValue());
+				settings.setLogLines(logLinesField.getValue());
 				settings.save();
 
 				SettingsDialog.this.dispose();
@@ -83,6 +86,7 @@ public class SettingsDialog extends JDialog {
 		panel.add(nthreadsField);
 		panel.add(isScrollTopField);
 		panel.add(triesField);
+		panel.add(logLinesField);
 		panel.add(btn);
 
 		for (int i = 0; i < panel.getComponentCount(); i++) {

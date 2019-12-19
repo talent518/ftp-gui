@@ -73,6 +73,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+import javax.swing.text.BadLocationException;
 
 import org.apache.log4j.Logger;
 
@@ -102,7 +103,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	private static final SimpleDateFormat logFormat = new SimpleDateFormat("yyyyMMddHHmm");
 	private static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final ImageIcon icon = new ImageIcon(MainFrame.class.getResource("/icons/app.png"));
-	private static final ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
 
 	private final Settings settings = Settings.instance();
 	private final ResourceBundle language = Settings.language();
@@ -131,6 +131,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	private final JLabel leftStatus = new JLabel();
 	private final JLabel rightStatus = new JLabel();
+
+	private ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.DiscardPolicy());
 
 	private MenuItem favoriteMenu;
 	private MenuItem localUploadMenu;
@@ -377,6 +379,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		processedMenu.add(new MenuItem("processed.cleanAll", KeyEvent.VK_A, MenuItem.KEY_CLEAN_ALL));
 		processedMenu.addSeparator();
 		processedMenu.add(new MenuItem("processed.cleanCompleted", KeyEvent.VK_C, MenuItem.KEY_CLEAN_COMPLETED));
+		processedMenu.add(new MenuItem("processed.cleanSkip", KeyEvent.VK_S, MenuItem.KEY_CLEAN_SKIP));
 		processedMenu.add(new MenuItem("processed.cleanError", KeyEvent.VK_E, MenuItem.KEY_CLEAN_ERROR));
 		processedMenu.addSeparator();
 		processedMenu.add(new MenuItem("processed.errorRetransfer", KeyEvent.VK_R, MenuItem.KEY_ERROR_RETRANSFER));
@@ -409,6 +412,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		transfer.stop();
 		transfer.unwatch();
 
+		pool.shutdownNow();
 		dispose();
 		LoadFrame.main(new String[0]);
 	}
@@ -482,12 +486,19 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			}
 			EventQueue.invokeLater(() -> {
 				logText.append(log);
+				int line = settings.getLogLines() - logText.getLineCount();
+				if (line > 0) {
+					try {
+						logText.replaceRange("", 0, logText.getLineEndOffset(line));
+					} catch (BadLocationException e) {
+					}
+				}
 			});
 		}
 	};
 
 	private void initLogBuffer() {
-		logTimer.schedule(logTimerTask, 50, 50);
+		logTimer.schedule(logTimerTask, 200, 200);
 	}
 
 	public void println(String str) {
@@ -538,7 +549,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 	};
 
-	private final GlassPane glassPane = new GlassPane();
+	private final GlassPane glassPane = new GlassPane() {
+		private static final long serialVersionUID = -4818814688439077751L;
+
+		public void closeEvent() {
+			pool.shutdownNow();
+			pool = new ThreadPoolExecutor(1, 2, 1, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), Executors.defaultThreadFactory(), new ThreadPoolExecutor.DiscardPolicy());
+		};
+	};
 
 	private void showLoading() {
 		EventQueue.invokeLater(() -> {
@@ -555,6 +573,17 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		EventQueue.invokeLater(() -> {
 			glassPane.stop();
 		});
+	}
+
+	private void relogin(IProtocol protocol) {
+		if (!protocol.isConnected() && protocol.isLogined()) {
+			protocol.logout();
+			println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+			if (protocol.login())
+				println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
+			else
+				println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
+		}
 	}
 
 	@Override
@@ -598,14 +627,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					println(language.getString("log.localEntererr"), addr);
 				}
 			} else {
-				if (!protocol.isConnected() && protocol.isLogined()) {
-					protocol.logout();
-					println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-					if (protocol.login())
-						println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-					else
-						println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-				}
+				relogin(protocol);
 				List<FileTable.Row> list = new ArrayList<FileTable.Row>();
 				if (protocol.ls(addr, list)) {
 					if (remoteTable.getAddr().equals(old)) {
@@ -740,14 +762,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						}
 					}
 
-					if (!protocol.isConnected() && protocol.isLogined()) {
-						protocol.logout();
-						println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-						if (protocol.login())
-							println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-						else
-							println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-					}
+					relogin(protocol);
 
 					println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
 					if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
@@ -764,14 +779,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									}
 									lastModified = lastModified2;
 
-									if (!protocol.isConnected() && protocol.isLogined()) {
-										protocol.logout();
-										println(language.getString("log.connecting"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-										if (protocol.login())
-											println(language.getString("log.connected"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-										else
-											println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-									}
+									relogin(protocol);
 
 									println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
 									if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
@@ -848,7 +856,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public class Transfer {
 		private AtomicBoolean running = new AtomicBoolean(false);
 		private AtomicBoolean diring = new AtomicBoolean(false);
-		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(1000000);
+		private LinkedBlockingQueue<ProgressTable.Row> queue = new LinkedBlockingQueue<ProgressTable.Row>(200000);
 		private LinkedList<ProgressTable.Row> link = new LinkedList<ProgressTable.Row>();
 		private AtomicInteger nThread = new AtomicInteger(0);
 		private AtomicInteger nReady = new AtomicInteger(0);
@@ -1013,14 +1021,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					sites.put(r.getSite(), protocol);
 				}
 
-				if (!protocol.isConnected() && protocol.isLogined()) {
-					protocol.logout();
-					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-					if (protocol.login())
-						println(language.getString("log.connected"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-					else
-						println(language.getString("log.connecterr"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-				}
+				relogin(protocol);
 
 				if (!protocol.isConnected() || !protocol.isLogined()) {
 					synchronized (lock) {
@@ -1350,14 +1351,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								println(language.getString("log.connected"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 							else
 								println(language.getString("log.connecterr"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-						} else if (!protocol.isConnected() && protocol.isLogined()) {
-							protocol.logout();
-							println(language.getString("log.connecting"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-							if (protocol.login())
-								println(language.getString("log.connected"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-							else
-								println(language.getString("log.connecterr"), site.getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-						}
+						} else
+							relogin(protocol);
 
 						if (!protocol.isConnected() || !protocol.isLogined()) {
 							println(language.getString("log.connectOrLoginFailure"), site.getName(), protocol.getError());
@@ -1830,8 +1825,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		// popup processed menu
 		public static final int KEY_CLEAN_ALL = 70;
 		public static final int KEY_CLEAN_COMPLETED = 71;
-		public static final int KEY_CLEAN_ERROR = 72;
-		public static final int KEY_ERROR_RETRANSFER = 73;
+		public static final int KEY_CLEAN_SKIP = 72;
+		public static final int KEY_CLEAN_ERROR = 73;
+		public static final int KEY_ERROR_RETRANSFER = 74;
 
 		// popup log menu
 		public static final int KEY_LOG_SAVE = 80;
@@ -2118,6 +2114,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					showLoading();
 					pool.execute(() -> {
 						final String f = remoteTable.getPath(remoteMenu.getRow().getName());
+						relogin(protocol);
 						if (remoteMenu.getRow().isDir()) {
 							println(language.getString("remote.delete.dir.being"), f);
 							if (protocol.rmdir(f)) {
@@ -2150,6 +2147,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							final String f = remoteTable.getPath(name);
 							showLoading();
 							pool.execute(() -> {
+								relogin(protocol);
 								println(language.getString("remote.mkdir.being"), f);
 								if (protocol.mkdir(f)) {
 									EventQueue.invokeLater(() -> {
@@ -2173,6 +2171,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							final String to = remoteTable.getPath(name);
 							showLoading();
 							pool.execute(() -> {
+								relogin(protocol);
 								println(language.getString("remote.rename.being"), from, to);
 								if (protocol.rename(from, to)) {
 									EventQueue.invokeLater(() -> {
@@ -2211,6 +2210,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					break;
 				case KEY_CLEAN_COMPLETED:
 					cleanProgress(ProgressTable.Row.STATUS_COMPLETED);
+					break;
+				case KEY_CLEAN_SKIP:
+					cleanProgress(ProgressTable.Row.STATUS_SKIP);
 					break;
 				case KEY_CLEAN_ERROR:
 					cleanProgress(ProgressTable.Row.STATUS_ERROR);

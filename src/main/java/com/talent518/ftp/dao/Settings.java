@@ -116,6 +116,7 @@ public class Settings {
 	private String skin = "skin.autumn";
 	private boolean isScrollTop = false;
 	private int tries = 3;
+	private int logLines = 100000;
 
 	public Locale getLocale() {
 		if (locale == null) {
@@ -196,5 +197,13 @@ public class Settings {
 
 	public void setTries(int tries) {
 		this.tries = tries;
+	}
+
+	public int getLogLines() {
+		return logLines;
+	}
+
+	public void setLogLines(int logLines) {
+		this.logLines = logLines;
 	}
 }
