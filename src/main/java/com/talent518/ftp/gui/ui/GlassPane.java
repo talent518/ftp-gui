@@ -1,7 +1,10 @@
 package com.talent518.ftp.gui.ui;
 
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
@@ -12,6 +15,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.Timer;
 
+import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.util.ImageUtils;
 
 public abstract class GlassPane extends JComponent implements ActionListener, MouseListener {
@@ -25,6 +29,7 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 
 	private final Timer timer = new Timer(3000 / frames.length, this);
 	private final Color bgColor = new Color(0x66000000, true);
+	private final String tip = Settings.language().getString("glassPane");
 	private int iframe = 0;
 
 	public GlassPane() {
@@ -57,7 +62,7 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 	}
 
 	@Override
-	protected void paintComponent(Graphics g) {
+	protected void paintComponent(Graphics _g) {
 		if (!isShowing())
 			return;
 
@@ -67,9 +72,18 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 			return;
 		}
 
+		Graphics2D g = (Graphics2D) _g;
+		Font font = new Font("微软雅黑", Font.PLAIN, 26);
+		FontMetrics fm = g.getFontMetrics(font);
+
+		g.setRenderingHints(ImageUtils.getHints());
 		g.setColor(bgColor);
 		g.fillRect(0, 0, w, h);
 		g.drawImage(frames[iframe], (w - icon.getIconWidth()) / 2, (h - icon.getIconHeight()) / 2, null);
+		g.setFont(font);
+		g.setColor(Color.WHITE);
+
+		g.drawString(tip, (w - fm.stringWidth(tip)) / 2, (h + icon.getIconHeight()) / 2 + font.getSize() * 2);
 	}
 
 	@Override

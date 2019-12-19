@@ -152,6 +152,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		setTitle(language.getString("app.name"));
 		setSize(1024, 768);
+		setMinimumSize(new Dimension(800, 600));
 		setLocationRelativeTo(null);
 		setResizable(true);
 		setIconImage(icon.getImage());
