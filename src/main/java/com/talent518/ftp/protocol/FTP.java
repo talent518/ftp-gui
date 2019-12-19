@@ -284,6 +284,12 @@ public class FTP extends IProtocol {
 		error = null;
 
 		if (isResume) {
+			try {
+				ftp.setFileType(org.apache.commons.net.ftp.FTP.BINARY_FILE_TYPE);
+			} catch (IOException e) {
+				log.error("Set binary '" + local + "' failure", e);
+			}
+
 			ftp.setRestartOffset(0);
 
 			try {
@@ -291,6 +297,7 @@ public class FTP extends IProtocol {
 				if (file != null)
 					ftp.setRestartOffset(file.getSize());
 			} catch (IOException e) {
+				log.error("Set restart offset '" + local + "' failure", e);
 			}
 		}
 
@@ -322,10 +329,17 @@ public class FTP extends IProtocol {
 
 		if (isResume) {
 			try {
+				ftp.setFileType(org.apache.commons.net.ftp.FTP.BINARY_FILE_TYPE);
+			} catch (IOException e) {
+				log.error("Set binary '" + local + "' failure", e);
+			}
+
+			try {
 				File f = new File(local);
 				ftp.setRestartOffset(f.exists() ? f.length() : 0);
 			} catch (Exception e) {
 				ftp.setRestartOffset(0);
+				log.error("Set restart offset '" + local + "' failure", e);
 			}
 		}
 
