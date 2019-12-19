@@ -14,9 +14,14 @@ public abstract class IProtocol {
 	private boolean isLogined = false;
 	protected ProgressListener progressListener = null;
 	protected DeleteListener deleteListener = null;
+	protected boolean isResume;
 
 	public IProtocol(Site s) {
 		site = s;
+	}
+	
+	public void setResume(boolean resume) {
+		isResume = resume;
 	}
 
 	public Site getSite() {

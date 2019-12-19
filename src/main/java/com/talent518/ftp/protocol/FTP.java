@@ -1,5 +1,6 @@
 package com.talent518.ftp.protocol;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -282,6 +283,17 @@ public class FTP extends IProtocol {
 		InputStream input = null;
 		error = null;
 
+		if (isResume) {
+			ftp.setRestartOffset(0);
+
+			try {
+				FTPFile file = ftp.mlistFile(remote);
+				if (file != null)
+					ftp.setRestartOffset(file.getSize());
+			} catch (IOException e) {
+			}
+		}
+
 		try {
 			input = new FileInputStream(local);
 
@@ -308,8 +320,17 @@ public class FTP extends IProtocol {
 		OutputStream output = null;
 		error = null;
 
+		if (isResume) {
+			try {
+				File f = new File(local);
+				ftp.setRestartOffset(f.exists() ? f.length() : 0);
+			} catch (Exception e) {
+				ftp.setRestartOffset(0);
+			}
+		}
+
 		try {
-			output = new FileOutputStream(local);
+			output = new FileOutputStream(local, isResume);
 
 			return ftp.retrieveFile(remote, output);
 		} catch (FileNotFoundException e) {

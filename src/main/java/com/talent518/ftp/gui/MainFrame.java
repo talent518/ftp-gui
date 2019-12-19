@@ -84,6 +84,7 @@ import com.talent518.ftp.dao.Skin;
 import com.talent518.ftp.gui.dialog.ConfirmDialog;
 import com.talent518.ftp.gui.dialog.FavoriteDialog;
 import com.talent518.ftp.gui.dialog.NameDialog;
+import com.talent518.ftp.gui.dialog.ResumeDialog;
 import com.talent518.ftp.gui.dialog.SettingsDialog;
 import com.talent518.ftp.gui.dialog.SitesDialog;
 import com.talent518.ftp.gui.filter.FileTypeFilter;
@@ -749,57 +750,76 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					e.printStackTrace();
 				}
 			} else {
-				showLoading();
-				pool.execute(() -> {
-					String remoteFile = remoteTable.getPath(r.getName());
-					File localFile = new File(Settings.ROOT_PATH + File.separator + "files" + File.separator + r.getName());
-					if (localFile.exists()) {
-						localFile.delete();
-					} else {
-						File f = localFile.getParentFile();
-						if (!f.isDirectory()) {
-							f.mkdir();
-						}
-					}
+				new ResumeDialog(MainFrame.this, true).show(new ResumeDialog.Listener() {
+					@Override
+					public void resume(boolean resume) {
+						showLoading();
+						pool.execute(() -> {
+							String remoteFile = remoteTable.getPath(r.getName());
+							File localFile = new File(Settings.ROOT_PATH + File.separator + "files" + File.separator + r.getName());
+							if (!localFile.exists()) {
+								File f = localFile.getParentFile();
+								if (!f.isDirectory()) {
+									f.mkdir();
+								}
+							}
 
-					relogin(protocol);
+							relogin(protocol);
 
-					println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-					if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
-						println(language.getString("log.downloaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-						EventQueue.invokeLater(() -> {
-							new ConfirmDialog(MainFrame.this, true).show(language.getString("upload.title"), localFile.getAbsolutePath() + " => " + remoteFile, language.getString("upload.confirm"), new Runnable() {
-								long lastModified = localFile.lastModified();
-
-								public void run() {
-									long lastModified2 = localFile.lastModified();
-
-									if (lastModified == lastModified2) {
-										return;
-									}
-									lastModified = lastModified2;
-
-									relogin(protocol);
-
-									println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-									if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
-										println(language.getString("log.uploaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-									} else {
-										println(language.getString("log.uploaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+							protocol.setResume(resume);
+							protocol.setProgressListener(new IProtocol.ProgressListener() {
+								long precent = 0;
+								
+								@Override
+								public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+									long p = 100 * totalBytesTransferred / r.getSize();
+									if(p != precent) {
+										precent = p;
+										leftStatus.setText(localFile.getAbsolutePath() + " - " + FileUtils.formatSize(totalBytesTransferred) + " - " + precent + '%');
 									}
 								}
 							});
-						});
-						try {
-							Desktop.getDesktop().open(localFile);
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					} else {
-						println(language.getString("log.downloaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
-					}
 
-					hideLoading();
+							println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+							if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
+								println(language.getString("log.downloaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+								EventQueue.invokeLater(() -> {
+									ConfirmDialog dialog = new ConfirmDialog(MainFrame.this, true);
+									dialog.setSize(600, dialog.getHeight());
+									dialog.show(language.getString("upload.title"), localFile.getAbsolutePath() + " => " + remoteFile, language.getString("upload.confirm"), new Runnable() {
+										long lastModified = localFile.lastModified();
+
+										public void run() {
+											long lastModified2 = localFile.lastModified();
+
+											if (lastModified == lastModified2) {
+												return;
+											}
+											lastModified = lastModified2;
+
+											relogin(protocol);
+
+											println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+											if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
+												println(language.getString("log.uploaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+											} else {
+												println(language.getString("log.uploaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+											}
+										}
+									});
+								});
+								try {
+									Desktop.getDesktop().open(localFile);
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							} else {
+								println(language.getString("log.downloaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+							}
+
+							hideLoading();
+						});
+					}
 				});
 			}
 			leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
@@ -874,6 +894,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		private AtomicBoolean closed = new AtomicBoolean(false);
 		private Set<TransferThread> threads = new HashSet<TransferThread>();
 		private long beginTime = System.currentTimeMillis();
+		private AtomicBoolean resume = new AtomicBoolean(false);
 
 		public void start() {
 			if (isRunning())
@@ -898,17 +919,22 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			lock = progressTable.getList();
 			timer = new Timer("transfer", true);
-			timer.schedule(new RefreshTask(), 100, 100);
-			timer.schedule(new BytesTask(), 1000, 1000);
 
 			mLang.setEnabled(false);
 			mSkin.setEnabled(false);
 
-			beginTime = System.currentTimeMillis();
-
-			synchronized (lock) {
-				addAll(progressTable.getList());
-			}
+			new ResumeDialog(MainFrame.this, true).show(new ResumeDialog.Listener() {
+				@Override
+				public void resume(boolean b) {
+					beginTime = System.currentTimeMillis();
+					resume.set(b);
+					synchronized (lock) {
+						addAll(progressTable.getList());
+					}
+					timer.schedule(new RefreshTask(), 100, 100);
+					timer.schedule(new BytesTask(), 1000, 100);
+				}
+			});
 		}
 
 		public boolean isRunning() {
@@ -955,6 +981,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		}
 
 		public void unwatch() {
+			synchronized (watchSet) {
+				watchSet.clear();
+			}
 			synchronized (watchThreads) {
 				for (Thread t : watchThreads)
 					t.interrupt();
@@ -1020,6 +1049,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					return true;
 				} else {
 					protocol = settings.getSites().get(r.getSite()).create();
+					protocol.setResume(resume.get());
 
 					println(language.getString("log.connecting"), r.getSite(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
 					if (protocol.login())
@@ -1441,13 +1471,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				File f;
 				WatchKey key, key2;
 
-				Thread t = new Thread(runQueue);
 				synchronized (watchThreads) {
 					watchThreads.add(this);
-					watchThreads.add(t);
+					for (int i = 0; i < settings.getNthreads(); i++) {
+						Thread t = new Thread(runQueue);
+						watchThreads.add(t);
+						t.start();
+					}
 				}
-
-				t.start();
 
 				try {
 					watchService = FileSystems.getDefault().newWatchService();

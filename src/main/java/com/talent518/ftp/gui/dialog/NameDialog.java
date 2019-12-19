@@ -3,6 +3,8 @@ package com.talent518.ftp.gui.dialog;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.util.ResourceBundle;
 
 import javax.swing.BorderFactory;
@@ -67,19 +69,38 @@ public class NameDialog extends JDialog {
 	public void show(String title, String value, Listener l) {
 		setTitle(title.replaceAll("\\s+\\([A-Z0-9]\\)$", ""));
 		nameField.getField().setText(value);
+		nameField.getField().addKeyListener(new KeyListener() {
+			@Override
+			public void keyTyped(KeyEvent e) {
+			}
+
+			@Override
+			public void keyReleased(KeyEvent e) {
+				if (e.getKeyCode() == KeyEvent.VK_ENTER)
+					confirm(l);
+			}
+
+			@Override
+			public void keyPressed(KeyEvent e) {
+			}
+		});
 		confirm.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if (!nameField.validator()) {
-					return;
-				}
-
-				l.name(nameField.getValue());
-
-				NameDialog.this.dispose();
+				confirm(l);
 			}
 		});
 		setVisible(true);
+	}
+
+	private void confirm(Listener l) {
+		if (!nameField.validator()) {
+			return;
+		}
+
+		l.name(nameField.getValue());
+
+		dispose();
 	}
 
 	public interface Listener {

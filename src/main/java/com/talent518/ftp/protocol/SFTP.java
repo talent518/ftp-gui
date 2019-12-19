@@ -1,10 +1,6 @@
 package com.talent518.ftp.protocol;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -252,26 +248,17 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean storeFile(String remote, String local) {
-		InputStream input = null;
 		error = null;
 
 		try {
-			input = new FileInputStream(local);
-			sftp.put(input, remote, monitor);
+			if (isResume)
+				sftp.put(local, remote, monitor, ChannelSftp.RESUME);
+			else
+				sftp.put(local, remote, monitor);
 			return true;
-		} catch (FileNotFoundException e) {
-			log.error("open local file '" + local + "' failure", e);
-			error = e.getMessage();
 		} catch (SftpException e) {
 			log.error("upload file '" + local + "' failure", e);
 			error = e.getMessage();
-		} finally {
-			if (input != null) {
-				try {
-					input.close();
-				} catch (Exception e2) {
-				}
-			}
 		}
 
 		return false;
@@ -279,26 +266,17 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean retrieveFile(String remote, String local) {
-		OutputStream output = null;
 		error = null;
 
 		try {
-			output = new FileOutputStream(local);
-			sftp.get(remote, output, monitor);
+			if (isResume)
+				sftp.get(remote, local, monitor, ChannelSftp.RESUME);
+			else
+				sftp.get(remote, local, monitor);
 			return true;
-		} catch (FileNotFoundException e) {
-			log.error("open local file '" + local + "' failure", e);
-			error = e.getMessage();
 		} catch (SftpException e) {
 			log.error("download file '" + local + "' failure", e);
 			error = e.getMessage();
-		} finally {
-			if (output != null) {
-				try {
-					output.close();
-				} catch (Exception e2) {
-				}
-			}
 		}
 
 		return false;
