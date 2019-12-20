@@ -99,40 +99,46 @@ public class ProgressTable extends JPanel {
 		tableColumn.setMaxWidth(100);
 		tableColumn.setCellRenderer(new StringColumn());
 
-		// local column(1)
+		// site column(1)
 		tableColumn = table.getColumnModel().getColumn(1);
+		tableColumn.setMinWidth(40);
+		tableColumn.setMaxWidth(100);
 		tableColumn.setCellRenderer(new StringColumn());
 
-		// direction column(2)
+		// local column(2)
 		tableColumn = table.getColumnModel().getColumn(2);
+		tableColumn.setCellRenderer(new StringColumn());
+
+		// direction column(3)
+		tableColumn = table.getColumnModel().getColumn(3);
 		tableColumn.setMinWidth(35);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("direction.size")));
 		tableColumn.setCellRenderer(new DirectionColumn());
 
-		// remote column(3)
-		tableColumn = table.getColumnModel().getColumn(3);
+		// remote column(4)
+		tableColumn = table.getColumnModel().getColumn(4);
 		tableColumn.setCellRenderer(new StringColumn());
 
-		// type column(4)
-		tableColumn = table.getColumnModel().getColumn(4);
+		// type column(5)
+		tableColumn = table.getColumnModel().getColumn(5);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("type.size")));
 		tableColumn.setCellRenderer(new TypeColumn());
 
-		// size column(5)
-		tableColumn = table.getColumnModel().getColumn(5);
+		// size column(6)
+		tableColumn = table.getColumnModel().getColumn(6);
 		tableColumn.setMinWidth(40);
 		tableColumn.setMaxWidth(60);
 		tableColumn.setCellRenderer(new SizeColumn());
 
-		// progress column(6)
-		tableColumn = table.getColumnModel().getColumn(6);
+		// progress column(7)
+		tableColumn = table.getColumnModel().getColumn(7);
 		tableColumn.setMinWidth(100);
 		tableColumn.setMaxWidth(100);
 		tableColumn.setCellRenderer(new ProgressColumn());
 
-		// status column(7)
-		tableColumn = table.getColumnModel().getColumn(7);
+		// status column(8)
+		tableColumn = table.getColumnModel().getColumn(8);
 		tableColumn.setMinWidth(60);
 		tableColumn.setMaxWidth(Integer.valueOf(language.getString("status.size")));
 		tableColumn.setCellRenderer(new StatusColumn());
@@ -263,6 +269,12 @@ public class ProgressTable extends JPanel {
 		});
 	}
 
+	private static final Comparator<Row> idComparator = new Comparator<Row>() {
+		@Override
+		public int compare(Row o1, Row o2) {
+			return Integer.compare(o1.getId(), o2.getId());
+		}
+	};
 	private static final Comparator<Row> siteComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
@@ -312,7 +324,7 @@ public class ProgressTable extends JPanel {
 		}
 	};
 	@SuppressWarnings("unchecked")
-	private static final Comparator<Row>[] comparators = new Comparator[] { siteComparator, localComparator, directionComparator, remoteComparator, typeComparator, sizeComparator, progressComparator, statusComparator };
+	private static final Comparator<Row>[] comparators = new Comparator[] { idComparator, siteComparator, localComparator, directionComparator, remoteComparator, typeComparator, sizeComparator, progressComparator, statusComparator };
 
 	public class TableRowSorter extends RowSorter<Model> implements Comparator<Row> {
 		private List<SortKey> sortKeys = Collections.emptyList();
@@ -323,7 +335,9 @@ public class ProgressTable extends JPanel {
 		public TableRowSorter() {
 			super();
 
-			toggleSortOrder(7);
+			toggleSortOrder(8);
+			if(!isProgress)
+				toggleSortOrder(8);
 		}
 
 		@Override
@@ -333,7 +347,10 @@ public class ProgressTable extends JPanel {
 
 		@Override
 		public int compare(Row o1, Row o2) {
-			return comparator.compare(o1, o2) * nSort;
+			int c = comparator.compare(o1, o2);
+			if (c == 0 && sortKey.getColumn() == comparators.length - 1)
+				return Integer.compare(o1.getId(), o2.getId()) * nSort;
+			return c * nSort;
 		}
 
 		public void sort() {
@@ -464,9 +481,10 @@ public class ProgressTable extends JPanel {
 	public class Model extends AbstractTableModel {
 		private static final long serialVersionUID = -1994280421860518219L;
 
-		private Class<?>[] cellType = { String.class, String.class, Boolean.class, String.class, String.class, Long.class, Integer.class, Integer.class };
+		private Class<?>[] cellType = { Integer.class, String.class, String.class, Boolean.class, String.class, String.class, Long.class, Integer.class, Integer.class };
 		// @formatter:off
 		private String title[] = {
+			language.getString("progressTable.id"),
 			language.getString("progressTable.site"),
 			language.getString("progressTable.local"),
 			language.getString("progressTable.direction"),
@@ -562,6 +580,7 @@ public class ProgressTable extends JPanel {
 		public static final int STATUS_SKIP = 3;
 		public static final int STATUS_ERROR = 4;
 
+		private int id = 0;
 		private String site;
 		private String local;
 		private boolean direction;
@@ -582,27 +601,30 @@ public class ProgressTable extends JPanel {
 			Object o = null;
 			switch (c) {
 				case 0:
-					o = site;
+					o = id;
 					break;
 				case 1:
-					o = local;
+					o = site;
 					break;
 				case 2:
-					o = direction;
+					o = local;
 					break;
 				case 3:
-					o = remote;
+					o = direction;
 					break;
 				case 4:
-					o = type;
+					o = remote;
 					break;
 				case 5:
-					o = size;
+					o = type;
 					break;
 				case 6:
-					o = progress;
+					o = size;
 					break;
 				case 7:
+					o = progress;
+					break;
+				case 8:
 					o = status;
 					break;
 			}
@@ -612,30 +634,41 @@ public class ProgressTable extends JPanel {
 		public void set(int c, Object value) {
 			switch (c) {
 				case 0:
-					site = (String) value;
+					id = (int) value;
 					break;
 				case 1:
-					local = (String) value;
+					site = (String) value;
 					break;
 				case 2:
-					direction = (boolean) value;
+					local = (String) value;
 					break;
 				case 3:
-					remote = (String) value;
+					direction = (boolean) value;
 					break;
 				case 4:
-					type = (String) value;
+					remote = (String) value;
 					break;
 				case 5:
-					size = (long) value;
+					type = (String) value;
 					break;
 				case 6:
-					progress = (int) value;
+					size = (long) value;
 					break;
 				case 7:
+					progress = (int) value;
+					break;
+				case 8:
 					status = (int) value;
 					break;
 			}
+		}
+
+		public int getId() {
+			return id;
+		}
+
+		public void setId(int id) {
+			this.id = id;
 		}
 
 		public String getSite() {
@@ -702,6 +735,8 @@ public class ProgressTable extends JPanel {
 			this.status = status;
 			if (status == STATUS_COMPLETED)
 				this.progress = 100;
+			else if (status == STATUS_READY)
+				this.progress = 0;
 		}
 
 		public long getWritten() {
@@ -720,11 +755,11 @@ public class ProgressTable extends JPanel {
 		public void addWritten(long written) {
 			setWritten(this.written + written);
 		}
-		
+
 		public boolean tries() {
 			return ++tries < Settings.instance().getTries();
 		}
-		
+
 		public void setTries() {
 			tries = 0;
 		}

@@ -26,6 +26,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Formatter;
 import java.util.HashMap;
@@ -301,11 +302,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				tabbedPane.setTitleAt(0, String.format(language.getString("tabbed.progress"), progressTable.getList().size()));
 			}
 		});
-		final JScrollBar processedScrollBar = processedTable.getScrollPane().getVerticalScrollBar();
 		processedTable.getModel().addTableModelListener(new TableModelListener() {
 			@Override
 			public void tableChanged(TableModelEvent e) {
-				processedScrollBar.setValue(processedScrollBar.getMaximum());
 				tabbedPane.setTitleAt(1, String.format(language.getString("tabbed.processed"), processedTable.getList().size()));
 			}
 		});
@@ -504,6 +503,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	}
 
 	public void println(String str) {
+		log.debug(str);
+		
 		synchronized (logBuffer) {
 			logBuffer.append(timeFormat.format(new Date()));
 			logBuffer.append(' ');
@@ -995,6 +996,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			LinkedList<ProgressTable.Row> lr = new LinkedList<ProgressTable.Row>();
 
 			public ProgressQueue(List<ProgressTable.Row> list) {
+				list.sort(new Comparator<ProgressTable.Row>() {
+					@Override
+					public int compare(com.talent518.ftp.gui.table.ProgressTable.Row o1, com.talent518.ftp.gui.table.ProgressTable.Row o2) {
+						return Integer.compare(o1.getId(), o1.getId());
+					}
+				});
 				lr.addAll(list);
 			}
 
@@ -1004,14 +1011,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 			@Override
 			public void run() {
-				ProgressTable.Row p;
 				synchronized (dirQueue) {
+					ProgressTable.Row r;
 					while (!lr.isEmpty()) {
-						p = lr.removeFirst();
-						if ("DIR".equals(p.getType()))
-							dirQueue.addLast(p);
-						else
-							dirQueue.addFirst(p);
+						r = lr.removeFirst();
+						r.setId(0);
+						dirQueue.add(r);
 					}
 				}
 
@@ -1191,7 +1196,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					} else {
 						nDownBytes.getAndAdd(delta);
 					}
-					row.setWritten(totalBytesTransferred);
+					synchronized (lock) {
+						row.setWritten(totalBytesTransferred);
+					}
 					makeTime();
 				}
 			}
@@ -1214,7 +1221,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					if (r.getSite() == null || (r.getStatus() != ProgressTable.Row.STATUS_READY && r.getStatus() != ProgressTable.Row.STATUS_RUNNING))
 						continue;
 
-					nCount.incrementAndGet();
+					if (r.getId() == 0)
+						r.setId(nCount.incrementAndGet());
 
 					if ("REG".equals(r.getType())) {
 						synchronized (fileQueue) {
@@ -1240,6 +1248,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 										for (File f2 : ls) {
 											FileTable.Row r2 = new FileTable.Row(f2);
 											p = new ProgressTable.Row();
+											p.setId(nCount.incrementAndGet());
 											p.setSite(r.getSite());
 											p.setLocal(r.getLocal() + File.separator + r2.getName());
 											p.setDirection(true);
@@ -1250,11 +1259,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 											synchronized (progresses) {
 												progresses.add(p);
 											}
-											synchronized (dirQueue) {
-												if ("DIR".equals(p.getType()))
-													dirQueue.addLast(p);
-												else
-													dirQueue.addFirst(p);
+											if ("REG".equals(p.getType())) {
+												synchronized (fileQueue) {
+													fileQueue.add(p);
+												}
+											} else {
+												synchronized (dirQueue) {
+													dirQueue.add(p);
+												}
 											}
 										}
 									}
@@ -1279,7 +1291,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									synchronized (dirQueue) {
 										dirQueue.addFirst(r);
 									}
-									nCount.decrementAndGet();
 								} else {
 									println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
 									synchronized (lock) {
@@ -1325,6 +1336,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							if (protocol.ls(r.getRemote(), files)) {
 								for (FileTable.Row r2 : files) {
 									p = new ProgressTable.Row();
+									p.setId(nCount.incrementAndGet());
 									p.setSite(r.getSite());
 									p.setLocal(r.getLocal() + File.separator + r2.getName());
 									p.setDirection(false);
@@ -1335,11 +1347,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									synchronized (progresses) {
 										progresses.add(p);
 									}
-									synchronized (dirQueue) {
-										if ("DIR".equals(p.getType()))
-											dirQueue.addLast(p);
-										else
-											dirQueue.addFirst(p);
+									if ("REG".equals(p.getType())) {
+										synchronized (fileQueue) {
+											fileQueue.add(p);
+										}
+									} else {
+										synchronized (dirQueue) {
+											dirQueue.add(p);
+										}
 									}
 								}
 								println(language.getString("log.dirlisted"), r.getRemote(), r.getSite());
@@ -1355,7 +1370,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									synchronized (dirQueue) {
 										dirQueue.addFirst(r);
 									}
-									nCount.decrementAndGet();
 								} else {
 									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 									synchronized (lock) {
@@ -1474,11 +1488,9 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 				synchronized (watchThreads) {
 					watchThreads.add(this);
-					for (int i = 0; i < settings.getNthreads(); i++) {
-						Thread t = new Thread(runQueue);
-						watchThreads.add(t);
-						t.start();
-					}
+					Thread t = new Thread(runQueue);
+					watchThreads.add(t);
+					t.start();
 				}
 
 				try {
