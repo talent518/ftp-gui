@@ -504,7 +504,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	public void println(String str) {
 		log.debug(str);
-		
+
 		synchronized (logBuffer) {
 			logBuffer.append(timeFormat.format(new Date()));
 			logBuffer.append(' ');
@@ -1020,7 +1020,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				}
 
-				if (isRunning() && !diring.getAndSet(true)) {
+				if (isRunning() && diring.compareAndSet(false, true)) {
 					running.set(true);
 					new DirectoryThread().start();
 				}
@@ -1611,6 +1611,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 		private class BytesTask extends TimerTask {
 			final String format = language.getString("transfer.speed");
+			final String resumeStr = language.getString("name.resume");
 
 			@Override
 			public void run() {
@@ -1622,7 +1623,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				String upBytes = FileUtils.formatSize(up);
 				String downBytes = FileUtils.formatSize(down);
 
-				final String left = String.format(format, totalBytes, upBytes, downBytes, (double) (System.currentTimeMillis() - beginTime) / 1000.0f);
+				final String left = (resume.get() ? resumeStr + " - " : "") + String.format(format, totalBytes, upBytes, downBytes, (double) (System.currentTimeMillis() - beginTime) / 1000.0f);
 
 				EventQueue.invokeLater(() -> {
 					leftStatus.setText(left);
@@ -1646,10 +1647,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			@Override
 			public void run() {
 				if (isRunning()) {
-					if (!diring.get() && fileQueue.size() == 0) {
-						running.set(false);
-					}
-
 					if (running.get()) {
 						for (int i = nThread.get(); i < settings.getNthreads() && i < fileQueue.size(); i++)
 							new FileThread().start();
@@ -1660,8 +1657,12 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								if (time - t.getTime() > 15000)
 									t.interrupt();
 						}
-						if (!dirQueue.isEmpty() && !diring.getAndSet(true))
+
+						if (!dirQueue.isEmpty() && diring.compareAndSet(false, true))
 							new DirectoryThread().start();
+
+						if (!diring.get() && fileQueue.size() == 0)
+							running.set(false);
 					}
 				} else {
 					println(language.getString("log.transferEnd"));
