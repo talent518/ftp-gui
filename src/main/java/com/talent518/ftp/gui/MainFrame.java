@@ -933,7 +933,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						addAll(progressTable.getList());
 					}
 					timer.schedule(new RefreshTask(), 100, 100);
-					timer.schedule(new BytesTask(), 1000, 100);
+					timer.schedule(new BytesTask(), 100, 1000);
 				}
 			});
 		}
