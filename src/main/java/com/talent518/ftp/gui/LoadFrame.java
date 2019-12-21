@@ -31,7 +31,7 @@ public class LoadFrame extends JFrame implements WindowListener {
 	private static final long serialVersionUID = 8353063665199041781L;
 	private final ResourceBundle language = Settings.language();
 	private final Color transparent = new Color(0, 0, 0, 0);
-	private final Font font = new Font("微软雅黑", Font.PLAIN, 12);
+	private final Font font = new Font(language.getString("app.font"), Font.PLAIN, 12);
 
 	public LoadFrame() {
 		super();
@@ -57,7 +57,7 @@ public class LoadFrame extends JFrame implements WindowListener {
 
 		btn.setBorder(BorderFactory.createEmptyBorder());
 		btn.setBounds(0, 0, MainFrame.icon.getIconWidth(), MainFrame.icon.getIconHeight());
-		btn.setOpaque(false);// 设置控件是否透明，true为不透明，false为透明
+		btn.setOpaque(false);
 		btn.setFont(font);
 
 		setTitle(language.getString("app.name"));

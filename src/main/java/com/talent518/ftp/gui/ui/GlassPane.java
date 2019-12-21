@@ -10,6 +10,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
+import java.util.ResourceBundle;
 
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
@@ -27,9 +28,11 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 			frames[i] = ImageUtils.rotate(icon, i * 360.0 / frames.length);
 	}
 
+	private final ResourceBundle language = Settings.language();
 	private final Timer timer = new Timer(3000 / frames.length, this);
 	private final Color bgColor = new Color(0x66000000, true);
-	private final String tip = Settings.language().getString("glassPane");
+	private Font font = new Font(language.getString("app.font"), Font.PLAIN, 26);
+	private final String tip = language.getString("glassPane");
 	private int iframe = 0;
 
 	public GlassPane() {
@@ -73,7 +76,6 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 		}
 
 		Graphics2D g = (Graphics2D) _g;
-		Font font = new Font("微软雅黑", Font.PLAIN, 26);
 		FontMetrics fm = g.getFontMetrics(font);
 
 		g.setRenderingHints(ImageUtils.getHints());

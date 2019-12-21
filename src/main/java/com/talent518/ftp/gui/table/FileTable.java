@@ -260,25 +260,27 @@ public class FileTable extends JPanel {
 			return isLocal ? System.getProperty("user.dir") : addr.getText();
 		}
 
-		char separator;
+		char separatorChar;
 		if (isLocal) {
-			separator = File.separatorChar;
+			separatorChar = File.separatorChar;
 			String resolve = currentPath != null ? currentPath : System.getProperty("user.dir");
 			path = Paths.get(resolve).resolve(path).toAbsolutePath().toString();
 		} else {
-			separator = '/';
+			separatorChar = '/';
 			if (!path.startsWith("/"))
 				path = (currentPath != null ? currentPath : "") + '/' + path;
 		}
 
+		String separator = (separatorChar == '\\' ? "\\\\" : "" + separatorChar);
+
 		path = path.replaceAll(separator + "\\.$", "");
-		path = path.replaceAll(separator + "\\." + separator, "" + separator);
+		path = path.replaceAll(separator + "\\." + separator, "" + separatorChar);
 
 		if (path.contains("..")) {
-			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\.$", "" + separator);
-			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\." + separator, "" + separator);
+			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\.$", "" + separatorChar);
+			path = path.replaceAll(separator + "[^" + separator + "]+" + separator + "\\.\\." + separator, "" + separatorChar);
 			path = path.replaceAll(separator + "\\.\\.$", "");
-			path = path.replaceAll(separator + "\\.\\." + separator, "" + separator);
+			path = path.replaceAll(separator + "\\.\\." + separator, "" + separatorChar);
 		}
 
 		return path;

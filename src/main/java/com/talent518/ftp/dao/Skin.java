@@ -9,6 +9,12 @@ public class Skin {
 	private static final Map<String, String> skins = new HashMap<String, String>();
 	private static final List<String> keys = new ArrayList<String>();
 	static {
+		keys.add("skin.metal");
+		if(System.getProperties().getProperty("os.name").toUpperCase().indexOf("WINDOWS") != -1)
+			keys.add("skin.windows");
+		keys.add("skin.motif");
+		keys.add("skin.nimbus");
+
 		keys.add("skin.autumn");
 		keys.add("skin.businessBlackSteel");
 		keys.add("skin.businessBlueSteel");
@@ -38,6 +44,11 @@ public class Skin {
 		keys.add("skin.raven");
 		keys.add("skin.sahara");
 		keys.add("skin.twilight");
+
+		skins.put("skin.metal", "javax.swing.plaf.metal.MetalLookAndFeel");
+		skins.put("skin.windows", "com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+		skins.put("skin.motif", "com.sun.java.swing.plaf.motif.MotifLookAndFeel");
+		skins.put("skin.nimbus", "javax.swing.plaf.nimbus.NimbusLookAndFeel");
 
 		skins.put("skin.autumn", "org.pushingpixels.substance.api.skin.SubstanceAutumnLookAndFeel");
 		skins.put("skin.businessBlackSteel", "org.pushingpixels.substance.api.skin.SubstanceBusinessBlackSteelLookAndFeel");
