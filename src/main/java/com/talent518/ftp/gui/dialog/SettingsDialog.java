@@ -56,7 +56,7 @@ public class SettingsDialog extends JDialog {
 		watchField = new BooleanField("settings.watch", settings.isWatch(), "settings.watch.help");
 		nthreadsField = new IntegerField("settings.nthreads", settings.getNthreads(), "settings.nthreads.help", 1, Runtime.getRuntime().availableProcessors() * 4, 1);
 		isScrollTopField = new BooleanField("settings.isScrollTop", settings.isScrollTop(), "settings.isScrollTop.help");
-		triesField = new IntegerField("settings.tries", settings.getTries(), "settings.tries.help", 0, 10, 1);
+		triesField = new IntegerField("settings.tries", settings.getTries(), "settings.tries.help", 0, 100, 1);
 		logLinesField = new IntegerField("settings.logLines", settings.getLogLines(), "settings.logLines.help", 10000, 1000000, 1000);
 
 		confirm.addActionListener(new ActionListener() {

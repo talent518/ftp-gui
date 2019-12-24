@@ -33,6 +33,7 @@ public class FTP extends IProtocol {
 	private int controlKeepAliveReplyTimeout = -1;
 	private int defaultTimeout = 10000;
 	private int dataTimeout = 10000;
+	private long skip = 0;
 	private final CopyStreamListener copyStreamListener = new CopyStreamListener() {
 		@Override
 		public void bytesTransferred(CopyStreamEvent event) {
@@ -41,8 +42,9 @@ public class FTP extends IProtocol {
 
 		@Override
 		public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+			makeTime();
 			if (progressListener != null) {
-				progressListener.bytesTransferred(totalBytesTransferred, bytesTransferred, streamSize);
+				progressListener.bytesTransferred(skip + totalBytesTransferred, bytesTransferred, streamSize);
 			}
 		}
 	};
@@ -104,12 +106,12 @@ public class FTP extends IProtocol {
 	}
 
 	public boolean isConnected() {
-		return ftp.isConnected() && error == null;
+		return !isTimeout() && ftp.isConnected() && error == null;
 	}
 
 	public boolean login() {
 		error = null;
-
+		makeTime();
 		try {
 			if (site.getPort() > 0) {
 				ftp.connect(site.getHost(), site.getPort());
@@ -166,7 +168,7 @@ public class FTP extends IProtocol {
 
 	public String pwd() {
 		error = null;
-
+		makeTime();
 		try {
 			return ftp.printWorkingDirectory();
 		} catch (IOException e) {
@@ -178,7 +180,7 @@ public class FTP extends IProtocol {
 
 	public boolean ls(String remote, List<FileTable.Row> rows) {
 		error = null;
-
+		makeTime();
 		try {
 			FTPFile[] files;
 			if (site.isMlsd()) {
@@ -205,7 +207,7 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean rename(String from, String to) {
 		error = null;
-
+		makeTime();
 		try {
 			return ftp.rename(from, to);
 		} catch (IOException e) {
@@ -218,9 +220,9 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean mkdir(String remote) {
 		error = null;
-
+		makeTime();
 		try {
-			return ftp.makeDirectory(remote);
+			return ftp.makeDirectory(remote) || ftp.changeWorkingDirectory(remote);
 		} catch (IOException e) {
 			log.error("mkdir " + remote + " failure", e);
 			error = e.getMessage();
@@ -232,7 +234,7 @@ public class FTP extends IProtocol {
 	public boolean rmdir(String remote) {
 		error = null;
 		boolean hidden = ftp.getListHiddenFiles();
-
+		makeTime();
 		try {
 			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
 			ftp.setListHiddenFiles(true);
@@ -269,7 +271,7 @@ public class FTP extends IProtocol {
 	@Override
 	public boolean unlink(String remote) {
 		error = null;
-
+		makeTime();
 		try {
 			return ftp.deleteFile(remote);
 		} catch (IOException e) {
@@ -282,7 +284,7 @@ public class FTP extends IProtocol {
 	public boolean storeFile(String remote, String local) {
 		InputStream input = null;
 		error = null;
-
+		makeTime();
 		if (isResume) {
 			try {
 				ftp.setFileType(org.apache.commons.net.ftp.FTP.BINARY_FILE_TYPE);
@@ -293,18 +295,23 @@ public class FTP extends IProtocol {
 			ftp.setRestartOffset(0);
 
 			try {
-				FTPFile file = ftp.mlistFile(remote);
-				if (file != null)
-					ftp.setRestartOffset(file.getSize());
-			} catch (IOException e) {
+				if (ftp.sendCommand("SIZE", remote) == 213)
+					ftp.setRestartOffset(Long.parseLong(ftp.getReplyString().split("\\s+")[1]));
+			} catch (Exception e) {
 				log.error("Set restart offset '" + local + "' failure", e);
 			}
 		}
 
 		try {
 			input = new FileInputStream(local);
-
-			return ftp.storeFile(remote, input);
+			if (isResume) {
+				input.skip(ftp.getRestartOffset());
+				skip = ftp.getRestartOffset();
+				return ftp.appendFile(remote, input);
+			} else {
+				skip = 0;
+				return ftp.storeFile(remote, input);
+			}
 		} catch (FileNotFoundException e) {
 			log.error("open local file '" + local + "' failure", e);
 			error = e.getMessage();
@@ -326,7 +333,7 @@ public class FTP extends IProtocol {
 	public boolean retrieveFile(String remote, String local) {
 		OutputStream output = null;
 		error = null;
-
+		makeTime();
 		if (isResume) {
 			try {
 				ftp.setFileType(org.apache.commons.net.ftp.FTP.BINARY_FILE_TYPE);
@@ -345,6 +352,10 @@ public class FTP extends IProtocol {
 
 		try {
 			output = new FileOutputStream(local, isResume);
+			if(isResume)
+				skip = ftp.getRestartOffset();
+			else
+				skip = 0;
 
 			return ftp.retrieveFile(remote, output);
 		} catch (FileNotFoundException e) {
@@ -367,7 +378,7 @@ public class FTP extends IProtocol {
 
 	public boolean logout() {
 		error = null;
-
+		makeTime();
 		try {
 			ftp.noop();
 

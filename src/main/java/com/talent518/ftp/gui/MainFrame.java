@@ -499,7 +499,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	};
 
 	private void initLogBuffer() {
-		logTimer.schedule(logTimerTask, 200, 200);
+		logTimer.schedule(logTimerTask, 250, 250);
 	}
 
 	public void println(String str) {
@@ -933,8 +933,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					synchronized (lock) {
 						addAll(progressTable.getList());
 					}
-					timer.schedule(new RefreshTask(), 100, 100);
-					timer.schedule(new BytesTask(), 100, 1000);
+					timer.schedule(new RefreshTask(), 50, 250);
+					timer.schedule(new BytesTask(), 50, 1000);
 				}
 			});
 		}
@@ -1132,15 +1132,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							}
 							nCompleted.incrementAndGet();
 						} else {
+							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							if (r.tries()) {
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_READY);
 								}
 								synchronized (fileQueue) {
-									fileQueue.addFirst(r);
+									fileQueue.add(r);
 								}
 							} else {
-								println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_ERROR);
 								}
@@ -1156,17 +1156,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 							}
 							nCompleted.incrementAndGet();
 						} else {
+							println(language.getString("log.downloaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							if (r.tries()) {
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_READY);
 								}
 								synchronized (fileQueue) {
-									fileQueue.addFirst(r);
+									fileQueue.add(r);
 								}
-								nRunning.decrementAndGet();
-								continue;
 							} else {
-								println(language.getString("log.downloaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_ERROR);
 								}
@@ -1284,15 +1282,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									nError.incrementAndGet();
 								}
 							} else {
+								println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
 								if (r.tries()) {
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_READY);
 									}
 									synchronized (dirQueue) {
-										dirQueue.addFirst(r);
+										dirQueue.add(r);
 									}
 								} else {
-									println(language.getString("log.mkdirerr"), r.getRemote(), r.getSite(), protocol.getError());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
@@ -1363,15 +1361,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 								}
 								nCompleted.incrementAndGet();
 							} else {
+								println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 								if (r.tries()) {
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_READY);
 									}
 									synchronized (dirQueue) {
-										dirQueue.addFirst(r);
+										dirQueue.add(r);
 									}
 								} else {
-									println(language.getString("log.dirlisterr"), r.getRemote(), r.getSite(), protocol.getError());
 									synchronized (lock) {
 										r.setStatus(ProgressTable.Row.STATUS_ERROR);
 									}
@@ -1648,9 +1646,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			public void run() {
 				if (isRunning()) {
 					if (running.get()) {
-						for (int i = nThread.get(); i < settings.getNthreads() && i < fileQueue.size(); i++)
-							new FileThread().start();
-
 						synchronized (threads) {
 							long time = System.currentTimeMillis();
 							for (TransferThread t : threads)
@@ -1658,11 +1653,33 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 									t.interrupt();
 						}
 
-						if (!dirQueue.isEmpty() && diring.compareAndSet(false, true))
-							new DirectoryThread().start();
+						synchronized (fileQueue) {
+							for (int i = nThread.get(); i < settings.getNthreads() && i < fileQueue.size(); i++)
+								new FileThread().start();
+						}
 
-						if (!diring.get() && fileQueue.size() == 0)
-							running.set(false);
+						synchronized (dirQueue) {
+							if (!dirQueue.isEmpty() && diring.compareAndSet(false, true))
+								new DirectoryThread().start();
+						}
+
+						if (!diring.get() && nThread.get() == 0) {
+							synchronized (fileQueue) {
+								synchronized (dirQueue) {
+									synchronized (lock) {
+										synchronized (progresses) {
+											if (fileQueue.isEmpty() && dirQueue.isEmpty() && progressTable.getList().isEmpty() && progresses.isEmpty())
+												running.set(false);
+										}
+									}
+								}
+							}
+						}
+					} else {
+						synchronized (threads) {
+							for (Thread t : threads)
+								t.interrupt();
+						}
 					}
 				} else {
 					println(language.getString("log.transferEnd"));
@@ -1956,6 +1973,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					chooser.setDialogType(JFileChooser.OPEN_DIALOG);
 					chooser.setApproveButtonText(language.getString("chooser.save"));
 					chooser.addChoosableFileFilter(new FileTypeFilter(".json", language.getString("chooser.json.type")));
+					chooser.setAcceptAllFileFilterUsed(false);
 					if (chooser.showOpenDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
 						progressTable.load(chooser.getSelectedFile());
 					}
@@ -1968,6 +1986,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 					chooser.setApproveButtonText(language.getString("chooser.save"));
 					chooser.addChoosableFileFilter(new FileTypeFilter(".json", language.getString("chooser.json.type")));
+					chooser.setAcceptAllFileFilterUsed(false);
 					chooser.setSelectedFile(new File(f, "ftp-gui-" + logFormat.format(new Date()) + ".json"));
 					if (chooser.showSaveDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
 						progressTable.save(chooser.getSelectedFile());
@@ -2120,6 +2139,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new NameDialog(MainFrame.this, true).show(resVal, localMenu.getRow().getName(), new NameDialog.Listener() {
 						@Override
 						public void name(String name) {
+							if (name.equals(localMenu.getRow().getName()))
+								return;
 							showLoading();
 							pool.execute(() -> {
 								File from = new File(localTable.getAddr() + File.separator + localMenu.getRow().getName());
@@ -2221,6 +2242,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						public void name(String name) {
 							final String from = remoteTable.getPath(remoteMenu.getRow().getName());
 							final String to = remoteTable.getPath(name);
+							if (from.equals(to))
+								return;
 							showLoading();
 							pool.execute(() -> {
 								relogin(protocol);
@@ -2283,6 +2306,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					chooser.setDialogType(JFileChooser.SAVE_DIALOG);
 					chooser.setApproveButtonText(language.getString("chooser.save"));
 					chooser.addChoosableFileFilter(new FileTypeFilter(".log", language.getString("chooser.log.type")));
+					chooser.setAcceptAllFileFilterUsed(false);
 					chooser.setSelectedFile(new File(f, "ftp-gui-" + logFormat.format(new Date()) + ".log"));
 					if (chooser.showSaveDialog(MainFrame.this) == JFileChooser.APPROVE_OPTION) {
 						logSave(chooser.getSelectedFile());

@@ -72,10 +72,12 @@ public class SFTP extends IProtocol {
 		public void init(int op, String src, String dest, long max) {
 			total = max;
 			written = 0;
+			makeTime();
 		}
 
 		@Override
 		public void end() {
+			makeTime();
 			if (progressListener != null && total != UNKNOWN_SIZE) {
 				progressListener.bytesTransferred(total, 0, -1);
 			}
@@ -83,6 +85,7 @@ public class SFTP extends IProtocol {
 
 		@Override
 		public boolean count(long count) {
+			makeTime();
 			written += count;
 			if (progressListener != null) {
 				progressListener.bytesTransferred(written, 0, -1);
@@ -100,13 +103,13 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean isConnected() {
-		return sftp != null && sftp.isConnected() && error == null;
+		return !isTimeout() && sftp != null && sftp.isConnected() && error == null;
 	}
 
 	@Override
 	public boolean login() {
 		error = null;
-
+		makeTime();
 		try {
 			JSch jsch = new JSch();
 			if (site.getPrivateKey() != null && site.getPrivateKey().length() > 0) {
@@ -142,6 +145,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public String pwd() {
+		error = null;
+		makeTime();
 		try {
 			return sftp.pwd();
 		} catch (SftpException e) {
@@ -154,6 +159,8 @@ public class SFTP extends IProtocol {
 	@SuppressWarnings("unchecked")
 	@Override
 	public boolean ls(String remote, List<Row> files) {
+		error = null;
+		makeTime();
 		try {
 			Vector<LsEntry> vector = sftp.ls(remote);
 			for (LsEntry entry : vector)
@@ -172,6 +179,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean rename(String from, String to) {
+		error = null;
+		makeTime();
 		try {
 			sftp.rename(from, to);
 			return true;
@@ -184,6 +193,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean mkdir(String remote) {
+		error = null;
+		makeTime();
 		try {
 			sftp.mkdir(remote);
 			return true;
@@ -198,6 +209,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean rmdir(String remote) {
+		error = null;
+		makeTime();
 		try {
 			List<Row> rows = new ArrayList<Row>();
 			if (ls(remote, rows)) {
@@ -233,6 +246,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean unlink(String remote) {
+		error = null;
+		makeTime();
 		try {
 			sftp.rm(remote);
 			return true;
@@ -249,7 +264,7 @@ public class SFTP extends IProtocol {
 	@Override
 	public boolean storeFile(String remote, String local) {
 		error = null;
-
+		makeTime();
 		try {
 			if (isResume)
 				sftp.put(local, remote, monitor, ChannelSftp.RESUME);
@@ -267,7 +282,7 @@ public class SFTP extends IProtocol {
 	@Override
 	public boolean retrieveFile(String remote, String local) {
 		error = null;
-
+		makeTime();
 		try {
 			if (isResume)
 				sftp.get(remote, local, monitor, ChannelSftp.RESUME);
@@ -284,6 +299,8 @@ public class SFTP extends IProtocol {
 
 	@Override
 	public boolean logout() {
+		error = null;
+		makeTime();
 		if (sftp != null) {
 			if (sftp.isConnected()) {
 				sftp.disconnect();
