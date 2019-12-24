@@ -68,7 +68,10 @@ public class FTP extends IProtocol {
 			}
 			ftp = ftps;
 		} else if (s.getProxyHost() != null && s.getProxyHost().length() > 0) {
-			ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort(), s.getProxyUser(), s.getProxyPassword());
+			if (s.getProxyUser() != null && s.getProxyUser().length() > 0 && s.getProxyPassword() != null && s.getProxyPassword().length() > 0)
+				ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort(), s.getProxyUser(), s.getProxyPassword());
+			else
+				ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort());
 		} else {
 			ftp = new FTPClient();
 		}
@@ -352,7 +355,7 @@ public class FTP extends IProtocol {
 
 		try {
 			output = new FileOutputStream(local, isResume);
-			if(isResume)
+			if (isResume)
 				skip = ftp.getRestartOffset();
 			else
 				skip = 0;

@@ -16,6 +16,7 @@ import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.ProxyHTTP;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import com.jcraft.jsch.SftpProgressMonitor;
@@ -125,8 +126,15 @@ public class SFTP extends IProtocol {
 			config.put("StrictHostKeyChecking", "no");
 			config.put("ConnectTimeout", "10000");
 			config.put("ServerAliveInterval", "10000");
-
 			session.setConfig(config);
+
+			if (site.getProxyHost() != null && site.getProxyHost().length() > 0) {
+				ProxyHTTP proxy = new ProxyHTTP(site.getProxyHost(), site.getProxyPort());
+				if (site.getProxyUser() != null && site.getProxyHost().length() > 0 && site.getProxyPassword() != null && site.getProxyPassword().length() > 0)
+					proxy.setUserPasswd(site.getProxyUser(), site.getProxyPassword());
+				session.setProxy(proxy);
+			}
+
 			session.connect();
 
 			Channel channel = session.openChannel("sftp");
