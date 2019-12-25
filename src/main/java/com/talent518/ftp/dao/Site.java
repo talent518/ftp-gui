@@ -56,6 +56,8 @@ public class Site implements Cloneable {
 	private boolean isMlsd;
 
 	private String privateKey;
+	private String transferMode;
+	private String prot;
 
 	private Map<String, Favorite> favorites;
 
@@ -328,6 +330,22 @@ public class Site implements Cloneable {
 		if (favorites != null) {
 			this.favorites = favorites;
 		}
+	}
+
+	public String getTransferMode() {
+		return transferMode;
+	}
+
+	public void setTransferMode(String transferMode) {
+		this.transferMode = transferMode;
+	}
+
+	public String getProt() {
+		return prot;
+	}
+
+	public void setProt(String prot) {
+		this.prot = prot;
 	}
 
 	@Override

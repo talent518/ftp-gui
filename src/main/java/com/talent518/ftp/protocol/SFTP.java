@@ -141,6 +141,10 @@ public class SFTP extends IProtocol {
 			channel.connect();
 
 			sftp = (ChannelSftp) channel;
+			try {
+				sftp.setFilenameEncoding(site.getEncoding());
+			} catch (SftpException e) {
+			}
 
 			setLogined(true);
 			return true;

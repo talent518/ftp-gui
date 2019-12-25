@@ -279,15 +279,17 @@ public class SitesDialog extends JDialog {
 		private BooleanField syncField;
 		private BooleanField watchField;
 
-		private BooleanField isImplicitField;
+		private SelectField encodingField;
+
 		private FormField proxyHostField;
 		private IntegerField proxyPortField;
 		private FormField proxyUserField;
 		private FormField proxyPassField;
 
+		private BooleanField isImplicitField;
 		private SelectField secretField;
 		private SelectField trustmgrField;
-		private SelectField encodingField;
+
 		private BooleanField hiddenField;
 		private SelectField serverTypeField;
 		private BooleanField saveUnparseableField;
@@ -295,6 +297,9 @@ public class SitesDialog extends JDialog {
 		private BooleanField localActiveField;
 		private BooleanField useEpsvWithIPv4Field;
 		private BooleanField isMlsdField;
+
+		private SelectField transferModeField;
+		private SelectField protField;
 
 		public SiteForm() {
 			super();
@@ -360,22 +365,88 @@ public class SitesDialog extends JDialog {
 			syncField.getField().setSelected(site.isSync());
 			watchField.getField().setSelected(site.isWatch());
 
-			isImplicitField.getField().setSelected(site.isImplicit());
-			proxyHostField.getField().setText(site.getProxyHost());
-			proxyPortField.getField().setValue(site.getProxyPort());
-			proxyUserField.getField().setText(site.getProxyUser());
-			proxyPassField.getField().setText(site.getProxyPassword());
-
-			secretField.getField().setSelectedItem(site.getSecret());
-			trustmgrField.getField().setSelectedItem(site.getTrustmgr());
 			encodingField.getField().setSelectedItem(site.getEncoding());
-			hiddenField.getField().setSelected(site.isHidden());
-			serverTypeField.getField().setSelectedItem(site.getServerType());
-			saveUnparseableField.getField().setSelected(site.isSaveUnparseable());
-			binaryTransferField.getField().setSelected(site.isBinaryTransfer());
-			localActiveField.getField().setSelected(site.isLocalActive());
-			useEpsvWithIPv4Field.getField().setSelected(site.isUseEpsvWithIPv4());
-			isMlsdField.getField().setSelected(site.isMlsd());
+
+			if ("ftps".equals(site.getProtocol())) {
+				proxyHostField.getField().setEnabled(false);
+				proxyHostField.getField().setText("");
+				proxyPortField.getField().setEnabled(false);
+				proxyPortField.getField().setValue(0);
+				proxyUserField.getField().setEnabled(false);
+				proxyUserField.getField().setText("");
+				proxyPassField.getField().setEnabled(false);
+				proxyPassField.getField().setText("");
+
+				isImplicitField.getField().setEnabled(true);
+				isImplicitField.getField().setSelected(site.isImplicit());
+				secretField.getField().setEnabled(true);
+				secretField.getField().setSelectedItem(site.getSecret());
+				trustmgrField.getField().setEnabled(true);
+				trustmgrField.getField().setSelectedItem(site.getTrustmgr());
+			} else {
+				proxyHostField.getField().setEnabled(true);
+				proxyHostField.getField().setText(site.getProxyHost());
+				proxyPortField.getField().setEnabled(true);
+				proxyPortField.getField().setValue(site.getProxyPort());
+				proxyUserField.getField().setEnabled(true);
+				proxyUserField.getField().setText(site.getProxyUser());
+				proxyPassField.getField().setEnabled(true);
+				proxyPassField.getField().setText(site.getProxyPassword());
+
+				isImplicitField.getField().setEnabled(false);
+				isImplicitField.getField().setSelected(false);
+				secretField.getField().setEnabled(false);
+				secretField.getField().setSelectedIndex(-1);
+				trustmgrField.getField().setEnabled(false);
+				trustmgrField.getField().setSelectedIndex(-1);
+			}
+
+			if ("sftp".equals(site.getProtocol())) {
+				hiddenField.getField().setEnabled(false);
+				hiddenField.getField().setSelected(false);
+				serverTypeField.getField().setEnabled(false);
+				serverTypeField.getField().setSelectedIndex(-1);
+				saveUnparseableField.getField().setEnabled(false);
+				saveUnparseableField.getField().setSelected(false);
+				binaryTransferField.getField().setEnabled(false);
+				binaryTransferField.getField().setSelected(false);
+				localActiveField.getField().setEnabled(false);
+				localActiveField.getField().setSelected(false);
+				useEpsvWithIPv4Field.getField().setEnabled(false);
+				useEpsvWithIPv4Field.getField().setSelected(false);
+				isMlsdField.getField().setEnabled(false);
+				isMlsdField.getField().setSelected(false);
+
+				transferModeField.getField().setEnabled(false);
+				transferModeField.getField().setSelectedIndex(-1);
+				protField.getField().setEnabled(false);
+				protField.getField().setSelectedIndex(-1);
+			} else {
+				hiddenField.getField().setEnabled(true);
+				hiddenField.getField().setSelected(site.isHidden());
+				serverTypeField.getField().setEnabled(true);
+				serverTypeField.getField().setSelectedItem(site.getServerType());
+				saveUnparseableField.getField().setEnabled(true);
+				saveUnparseableField.getField().setSelected(site.isSaveUnparseable());
+				binaryTransferField.getField().setEnabled(true);
+				binaryTransferField.getField().setSelected(site.isBinaryTransfer());
+				localActiveField.getField().setEnabled(true);
+				localActiveField.getField().setSelected(site.isLocalActive());
+				useEpsvWithIPv4Field.getField().setEnabled(true);
+				useEpsvWithIPv4Field.getField().setSelected(site.isUseEpsvWithIPv4());
+				isMlsdField.getField().setEnabled(true);
+				isMlsdField.getField().setSelected(site.isMlsd());
+
+				transferModeField.getField().setEnabled(true);
+				transferModeField.getField().setSelectedItem(site.getTransferMode());
+				if ("ftps".equals(site.getProtocol())) {
+					protField.getField().setEnabled(true);
+					protField.getField().setSelectedItem(site.getProt());
+				} else {
+					protField.getField().setEnabled(false);
+					protField.getField().setSelectedItem(-1);
+				}
+			}
 		}
 
 		public void save() {
@@ -396,15 +467,17 @@ public class SitesDialog extends JDialog {
 			mSite.setSync(syncField.getValue() && localField.validator() && remoteField.validator());
 			mSite.setWatch(watchField.getValue());
 
-			mSite.setImplicit(isImplicitField.getValue());
+			mSite.setEncoding(encodingField.getValue());
+
 			mSite.setProxyHost(proxyHostField.getValue());
 			mSite.setProxyPort(proxyPortField.getValue());
 			mSite.setProxyUser(proxyUserField.getValue());
 			mSite.setProxyPassword(proxyPassField.getValue());
 
+			mSite.setImplicit(isImplicitField.getValue());
 			mSite.setSecret(secretField.getValue());
 			mSite.setTrustmgr(trustmgrField.getValue());
-			mSite.setEncoding(encodingField.getValue());
+
 			mSite.setHidden(hiddenField.getValue());
 			mSite.setServerType(serverTypeField.getValue());
 			mSite.setSaveUnparseable(saveUnparseableField.getValue());
@@ -412,6 +485,9 @@ public class SitesDialog extends JDialog {
 			mSite.setLocalActive(localActiveField.getValue());
 			mSite.setUseEpsvWithIPv4(useEpsvWithIPv4Field.getValue());
 			mSite.setMlsd(isMlsdField.getValue());
+
+			mSite.setTransferMode(transferModeField.getValue());
+			mSite.setProt(protField.getValue());
 
 			int i = model.indexOf(name);
 			if (i >= 0) {
@@ -476,15 +552,17 @@ public class SitesDialog extends JDialog {
 			String[] charsets = new String[charsetSet.size()];
 			charsetSet.toArray(charsets);
 
-			isImplicitField = new BooleanField("site.isImplicit", false, "site.isImplicit.help");
+			encodingField = new SelectField("site.encoding", "UTF-8", charsets);
+
 			proxyHostField = new FormField("site.proxyHost", "", RequiredValidator.class);
 			proxyPortField = new IntegerField("site.proxyPort", 0, 0, 65535, 1);
 			proxyUserField = new FormField("site.proxyUser", "", RequiredValidator.class);
 			proxyPassField = new FormField("site.proxyPass", "", RequiredValidator.class);
 
+			isImplicitField = new BooleanField("site.isImplicit", false, "site.isImplicit.help");
 			secretField = new SelectField("site.secret", "", "site.secret.help", new String[] { "", "SSL", "TLS" });
 			trustmgrField = new SelectField("site.trustmgr", "all", "site.trustmgr.help", new String[] { "all", "valid", "none" });
-			encodingField = new SelectField("site.encoding", "UTF-8", charsets);
+
 			hiddenField = new BooleanField("site.hidden", false, "site.hidden.help");
 			serverTypeField = new SelectField("site.serverType", "UNIX", "site.serverType.help", new String[] { "UNIX", "VMS", "WINDOWS" });
 			saveUnparseableField = new BooleanField("site.saveUnparseable", false, "site.saveUnparseable.help");
@@ -493,8 +571,11 @@ public class SitesDialog extends JDialog {
 			useEpsvWithIPv4Field = new BooleanField("site.useEpsvWithIPv4", false, "site.useEpsvWithIPv4.help");
 			isMlsdField = new BooleanField("site.isMlsd", false, "site.isMlsd.help");
 
+			transferModeField = new SelectField("site.transferMode", "", "site.transferMode.help", new String[] { "stream", "block", "compressed" });
+			protField = new SelectField("site.prot", "", "site.prot.help", new String[] { "Clear", "Safe", "Confidential", "Private" });
+
 			JPanel panel = new JPanel();
-			GridLayout layout = new GridLayout(15, 1, 10, 10);
+			GridLayout layout = new GridLayout(17, 1, 10, 10);
 
 			panel.setBorder(BorderFactory.createEmptyBorder());
 			panel.setLayout(layout);
@@ -502,15 +583,17 @@ public class SitesDialog extends JDialog {
 
 			tabbed.add(language.getString("site.advanced"), new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
 
-			panel.add(isImplicitField);
+			panel.add(encodingField);
+
 			panel.add(proxyHostField);
 			panel.add(proxyPortField);
 			panel.add(proxyUserField);
 			panel.add(proxyPassField);
 
+			panel.add(isImplicitField);
 			panel.add(secretField);
 			panel.add(trustmgrField);
-			panel.add(encodingField);
+
 			panel.add(hiddenField);
 			panel.add(serverTypeField);
 			panel.add(saveUnparseableField);
@@ -518,6 +601,9 @@ public class SitesDialog extends JDialog {
 			panel.add(localActiveField);
 			panel.add(useEpsvWithIPv4Field);
 			panel.add(isMlsdField);
+
+			panel.add(transferModeField);
+			panel.add(protField);
 
 			for (int i = 0; i < panel.getComponentCount(); i++) {
 				Component com = panel.getComponent(i);

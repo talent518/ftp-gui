@@ -28,6 +28,7 @@ import com.talent518.ftp.gui.table.FileTable;
 public class FTP extends IProtocol {
 	private static Logger log = Logger.getLogger(FTP.class);
 
+	private final FTPSClient ftps;
 	private final FTPClient ftp;
 	private int keepAliveTimeout = -1;
 	private int controlKeepAliveReplyTimeout = -1;
@@ -53,7 +54,6 @@ public class FTP extends IProtocol {
 		super(s);
 
 		if ("ftps".equals(s.getProtocol())) {
-			FTPSClient ftps;
 			if (s.getSecret() != null) {
 				ftps = new FTPSClient(s.getSecret(), s.isImplicit());
 			} else {
@@ -68,11 +68,13 @@ public class FTP extends IProtocol {
 			}
 			ftp = ftps;
 		} else if (s.getProxyHost() != null && s.getProxyHost().length() > 0) {
+			ftps = null;
 			if (s.getProxyUser() != null && s.getProxyUser().length() > 0 && s.getProxyPassword() != null && s.getProxyPassword().length() > 0)
 				ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort(), s.getProxyUser(), s.getProxyPassword());
 			else
 				ftp = new FTPHTTPClient(s.getProxyHost(), s.getProxyPort());
 		} else {
+			ftps = null;
 			ftp = new FTPClient();
 		}
 
@@ -147,6 +149,24 @@ public class FTP extends IProtocol {
 				ftp.enterLocalActiveMode();
 			} else {
 				ftp.enterLocalPassiveMode();
+			}
+
+			if ("stream".equals(site.getTransferMode()))
+				ftp.setFileTransferMode(org.apache.commons.net.ftp.FTP.STREAM_TRANSFER_MODE);
+			else if ("block".equals(site.getTransferMode()))
+				ftp.setFileTransferMode(org.apache.commons.net.ftp.FTP.BLOCK_TRANSFER_MODE);
+			else if ("stream".equals(site.getTransferMode()))
+				ftp.setFileTransferMode(org.apache.commons.net.ftp.FTP.COMPRESSED_TRANSFER_MODE);
+
+			if (ftps != null) {
+				if ("Clear".equals(site.getProt()))
+					ftps.execPROT("C");
+				else if ("Safe".equals(site.getProt()))
+					ftps.execPROT("S");
+				else if ("Confidential".equals(site.getProt()))
+					ftps.execPROT("E");
+				else if ("Private".equals(site.getProt()))
+					ftps.execPROT("P");
 			}
 
 			ftp.setUseEPSVwithIPv4(site.isUseEpsvWithIPv4());
