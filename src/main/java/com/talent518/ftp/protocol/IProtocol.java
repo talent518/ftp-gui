@@ -34,7 +34,7 @@ public abstract class IProtocol {
 	}
 
 	protected String getLogFile() {
-		return Settings.LOG_PATH + site.getName() + "-" + site.getProtocol() + ".log";
+		return Settings.LOG_PATH + site.getName() + ".log";
 	}
 
 	protected PrintWriter getPrintWriter() {
