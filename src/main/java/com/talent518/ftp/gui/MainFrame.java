@@ -99,7 +99,8 @@ import com.talent518.ftp.util.FileUtils;
 
 public class MainFrame extends JFrame implements ComponentListener, WindowListener, FileTable.Listener, ProgressTable.Listener {
 	private static final long serialVersionUID = 1723682780360129927L;
-	private static final double DIVIDER = 0.5;
+	private static final double DIVIDER_LR = 0.6;
+	private static final double DIVIDER_TB = 0.5;
 
 	private static final Logger log = Logger.getLogger(MainFrame.class);
 	private static final SimpleDateFormat logFormat = new SimpleDateFormat("yyyyMMddHHmm");
@@ -420,8 +421,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 
 	@Override
 	public void componentResized(ComponentEvent e) {
-		lrSplit.setDividerLocation(DIVIDER);
-		tbSplit.setDividerLocation(DIVIDER);
+		lrSplit.setDividerLocation(DIVIDER_LR);
+		tbSplit.setDividerLocation(DIVIDER_TB);
 
 		glassPane.setBounds(0, 0, getWidth(), getHeight());
 	}
@@ -587,6 +588,53 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			else
 				println(language.getString("log.connecterr"), protocol.getSite().getName(), protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
 		}
+	}
+
+	private void enterSite(String site) {
+		enterSite(site, null, null);
+	}
+
+	private void enterSite(String key, String local, String remote) {
+		showLoading();
+		pool.execute(() -> {
+			Site site = settings.getSites().get(key);
+			IProtocol p = site.create();
+			p.setDeleteListener(remoteDeleteListener);
+			println(language.getString("log.connecting"), site.getName(), site.getHost(), site.getPort(), site.getUsername());
+			if (p.login()) {
+				if (protocol != null) {
+					protocol.dispose();
+				}
+				protocol = p;
+				println(language.getString("log.connected"), site.getName(), site.getHost(), site.getPort(), site.getUsername());
+				if (settings.isWatch() && site.isWatch()) {
+					transfer.watch(site);
+				}
+				favoriteMenu.setEnabled(true);
+				EventQueue.invokeLater(() -> {
+					setTitle(site.getName() + " - " + (site.isSync() ? language.getString("sync") + " - " : "") + language.getString("app.name"));
+					initToolbar(site.getFavorites());
+
+					if (local != null) {
+						localTable.setAddr(local);
+					} else if (site.getLocal() != null && site.getLocal().length() > 0) {
+						localTable.setAddr(site.getLocal());
+					}
+					if (remote != null) {
+						remoteTable.setAddr(remote);
+					} else if (site.getRemote() != null && site.getRemote().length() > 0) {
+						remoteTable.setAddr(site.getRemote());
+					} else {
+						remoteTable.setAddr(p.pwd());
+					}
+				});
+			} else {
+				println(language.getString("log.connecterr"), site.getName(), site.getHost(), site.getPort(), site.getUsername(), p.getError());
+				p.logout();
+			}
+
+			hideLoading();
+		});
 	}
 
 	@Override
@@ -870,6 +918,28 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void doubleClicked(boolean isProgress, int i, ProgressTable.Row r) {
 		if (r != null) {
 			leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
+			
+			String local, remote;
+			if ("DIR".equals(r.getType())) {
+				local = r.getLocal();
+				remote = r.getRemote();
+			} else {
+				local = r.getLocal().substring(0, r.getLocal().lastIndexOf(File.separatorChar));
+				if (local.isEmpty())
+					local = "/";
+				remote = r.getRemote().substring(0, r.getRemote().lastIndexOf('/'));
+				if (remote.isEmpty())
+					remote = "/";
+			}
+
+			if (protocol == null || !protocol.getSite().getName().equals(r.getSite())) {
+				if (settings.getSites().containsKey(r.getSite())) {
+					enterSite(r.getSite(), local, remote);
+				}
+			} else {
+				localTable.setAddr(local);
+				remoteTable.setAddr(remote);
+			}
 		} else {
 			leftStatus.setText("");
 		}
@@ -1134,6 +1204,14 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						} else {
 							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							if (r.tries()) {
+								if (r.getWritten() == 0) {
+									println(language.getString("remote.delete.file.being"), r.getRemote());
+									if (protocol.unlink(r.getRemote())) {
+										println(language.getString("remote.delete.file.success"), r.getRemote());
+									} else {
+										println(language.getString("remote.delete.file.failure"), r.getRemote(), protocol.getError());
+									}
+								}
 								synchronized (lock) {
 									r.setStatus(ProgressTable.Row.STATUS_READY);
 								}
@@ -2006,41 +2084,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					new FavoriteDialog(MainFrame.this, true).setVisible(true);
 					break;
 				case KEY_SITE:
-					showLoading();
-					pool.execute(() -> {
-						if (protocol != null) {
-							protocol.dispose();
-						}
-						protocol = settings.getSites().get(resKey).create();
-						protocol.setDeleteListener(remoteDeleteListener);
-						println(language.getString("log.connecting"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-						if (protocol.login()) {
-							println(language.getString("log.connected"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername());
-							if (settings.isWatch() && protocol.getSite().isWatch()) {
-								transfer.watch(protocol.getSite());
-							}
-							favoriteMenu.setEnabled(true);
-							EventQueue.invokeLater(() -> {
-								setTitle(protocol.getSite().getName() + " - " + (protocol.getSite().isSync() ? language.getString("sync") + " - " : "") + language.getString("app.name"));
-								initToolbar(protocol.getSite().getFavorites());
-
-								if (protocol.getSite().getLocal() != null && protocol.getSite().getLocal().length() > 0) {
-									localTable.setAddr(protocol.getSite().getLocal());
-								}
-								if (protocol.getSite().getRemote() != null && protocol.getSite().getRemote().length() > 0) {
-									remoteTable.setAddr(protocol.getSite().getRemote());
-								} else {
-									remoteTable.setAddr(protocol.pwd());
-								}
-							});
-						} else {
-							println(language.getString("log.connecterr"), resKey, protocol.getSite().getHost(), protocol.getSite().getPort(), protocol.getSite().getUsername(), protocol.getError());
-							protocol.logout();
-							protocol = null;
-						}
-
-						hideLoading();
-					});
+					enterSite(resKey);
 					break;
 				case KEY_ENGLISH:
 					settings.setLocale(new Locale("en", "US"));
