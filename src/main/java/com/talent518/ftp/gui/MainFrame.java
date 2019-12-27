@@ -1204,7 +1204,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 						} else {
 							println(language.getString("log.uploaderr"), r.getLocal(), r.getRemote(), r.getSite(), protocol.getError());
 							if (r.tries()) {
-								if (r.getWritten() == 0) {
+								if (r.getWritten() == 0 && !isSkip()) {
 									println(language.getString("remote.delete.file.being"), r.getRemote());
 									if (protocol.unlink(r.getRemote())) {
 										println(language.getString("remote.delete.file.success"), r.getRemote());
