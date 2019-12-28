@@ -31,7 +31,7 @@ public class LoadFrame extends JFrame implements WindowListener {
 	private static final long serialVersionUID = 8353063665199041781L;
 	private final ResourceBundle language = Settings.language();
 	private final Color transparent = new Color(0, 0, 0, 0);
-	private final Font font = new Font(language.getString("app.font"), Font.PLAIN, 12);
+	private final Font font = new Font(Settings.instance().getFont(), Font.PLAIN, 12);
 
 	public LoadFrame() {
 		super();

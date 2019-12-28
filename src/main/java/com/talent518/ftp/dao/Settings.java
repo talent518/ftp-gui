@@ -117,6 +117,8 @@ public class Settings {
 	private boolean isScrollTop = false;
 	private int tries = 3;
 	private int logLines = 100000;
+	
+	private String font = null;
 
 	public Locale getLocale() {
 		if (locale == null) {
@@ -205,5 +207,15 @@ public class Settings {
 
 	public void setLogLines(int logLines) {
 		this.logLines = logLines;
+	}
+	
+	public String getFont() {
+		if(font == null)
+			font = language.getString("app.font");
+		return font;
+	}
+	
+	public void setFont(String font) {
+		this.font = font;
 	}
 }

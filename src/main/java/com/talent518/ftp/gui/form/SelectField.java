@@ -1,6 +1,7 @@
 package com.talent518.ftp.gui.form;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.util.ResourceBundle;
 
@@ -9,9 +10,12 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JToolTip;
 import javax.swing.SwingConstants;
+import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicComboBoxRenderer;
 
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.gui.ui.MultiLineToolTip;
@@ -62,6 +66,23 @@ public class SelectField extends JPanel {
 			field.addItem(item);
 		field.setSelectedItem(value);
 		field.setEditable(false);
+		field.setRenderer(new BasicComboBoxRenderer() {
+			private static final long serialVersionUID = 5124430506703490578L;
+
+			@Override
+			public Dimension getPreferredSize() {
+				Dimension size = super.getPreferredSize();
+				size.height = 30;
+				return size;
+			}
+
+			@Override
+			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+				BasicComboBoxRenderer c = (BasicComboBoxRenderer) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+				c.setBorder(new EmptyBorder(0, 10, 0, 10));
+				return c;
+			}
+		});
 
 		JPanel center = new JPanel();
 		center.setLayout(new BorderLayout(10, 10));

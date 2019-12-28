@@ -792,88 +792,86 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					}
 				}
 			}
-		} else {
-			if (local) {
-				try {
-					Desktop.getDesktop().open(new File(localTable.getPath(r.getName())));
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			} else {
-				new ResumeDialog(MainFrame.this, true).show(new ResumeDialog.Listener() {
-					@Override
-					public void resume(boolean resume) {
-						showLoading();
-						pool.execute(() -> {
-							String remoteFile = remoteTable.getPath(r.getName());
-							File localFile = new File(Settings.ROOT_PATH + File.separator + "files" + File.separator + r.getName());
-							if (!localFile.exists()) {
-								File f = localFile.getParentFile();
-								if (!f.isDirectory()) {
-									f.mkdir();
-								}
-							}
-
-							relogin(protocol);
-
-							protocol.setResume(resume);
-							protocol.setProgressListener(new IProtocol.ProgressListener() {
-								long precent = 0;
-
-								@Override
-								public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
-									long p = 100 * totalBytesTransferred / r.getSize();
-									if (p != precent) {
-										precent = p;
-										leftStatus.setText(localFile.getAbsolutePath() + " - " + FileUtils.formatSize(totalBytesTransferred) + " - " + precent + '%');
-									}
-								}
-							});
-
-							println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-							if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
-								println(language.getString("log.downloaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-								EventQueue.invokeLater(() -> {
-									ConfirmDialog dialog = new ConfirmDialog(MainFrame.this, true);
-									dialog.setSize(600, dialog.getHeight());
-									dialog.show(language.getString("upload.title"), localFile.getAbsolutePath() + " => " + remoteFile, language.getString("upload.confirm"), new Runnable() {
-										long lastModified = localFile.lastModified();
-
-										public void run() {
-											long lastModified2 = localFile.lastModified();
-
-											if (lastModified == lastModified2) {
-												return;
-											}
-											lastModified = lastModified2;
-
-											relogin(protocol);
-
-											println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-											if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
-												println(language.getString("log.uploaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
-											} else {
-												println(language.getString("log.uploaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
-											}
-										}
-									});
-								});
-								try {
-									Desktop.getDesktop().open(localFile);
-								} catch (IOException e) {
-									e.printStackTrace();
-								}
-							} else {
-								println(language.getString("log.downloaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
-							}
-
-							hideLoading();
-						});
-					}
-				});
+		} else if (local) {
+			try {
+				Desktop.getDesktop().open(new File(localTable.getPath(r.getName())));
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
+		} else if ("REG".equals(r.getType())) {
+			new ResumeDialog(MainFrame.this, true).show(new ResumeDialog.Listener() {
+				@Override
+				public void resume(boolean resume) {
+					showLoading();
+					pool.execute(() -> {
+						String remoteFile = remoteTable.getPath(r.getName());
+						File localFile = new File(Settings.ROOT_PATH + File.separator + "files" + File.separator + r.getName());
+						if (!localFile.exists()) {
+							File f = localFile.getParentFile();
+							if (!f.isDirectory()) {
+								f.mkdir();
+							}
+						}
+
+						relogin(protocol);
+
+						protocol.setResume(resume);
+						protocol.setProgressListener(new IProtocol.ProgressListener() {
+							long precent = 0;
+
+							@Override
+							public void bytesTransferred(long totalBytesTransferred, int bytesTransferred, long streamSize) {
+								long p = 100 * totalBytesTransferred / r.getSize();
+								if (p != precent) {
+									precent = p;
+									leftStatus.setText(localFile.getAbsolutePath() + " - " + FileUtils.formatSize(totalBytesTransferred) + " - " + precent + '%');
+								}
+							}
+						});
+
+						println(language.getString("log.downloading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+						if (protocol.retrieveFile(remoteFile, localFile.getAbsolutePath())) {
+							println(language.getString("log.downloaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+							EventQueue.invokeLater(() -> {
+								ConfirmDialog dialog = new ConfirmDialog(MainFrame.this, true);
+								dialog.setSize(600, dialog.getHeight());
+								dialog.show(language.getString("upload.title"), localFile.getAbsolutePath() + " => " + remoteFile, language.getString("upload.confirm"), new Runnable() {
+									long lastModified = localFile.lastModified();
+
+									public void run() {
+										long lastModified2 = localFile.lastModified();
+
+										if (lastModified == lastModified2) {
+											return;
+										}
+										lastModified = lastModified2;
+
+										relogin(protocol);
+
+										println(language.getString("log.uploading"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+										if (protocol.storeFile(remoteFile, localFile.getAbsolutePath())) {
+											println(language.getString("log.uploaded"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName());
+										} else {
+											println(language.getString("log.uploaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+										}
+									}
+								});
+							});
+							try {
+								Desktop.getDesktop().open(localFile);
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						} else {
+							println(language.getString("log.downloaderr"), localFile.getAbsolutePath(), remoteFile, protocol.getSite().getName(), protocol.getError());
+						}
+
+						hideLoading();
+					});
+				}
+			});
+		} else
 			leftStatus.setText(language.getString(local ? "local" : "remote") + " " + language.getString("type." + r.getType()) + " \"" + r.getName() + "\" " + FileUtils.formatSize(r.getSize()));
-		}
 	}
 
 	@Override
@@ -918,7 +916,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 	public void doubleClicked(boolean isProgress, int i, ProgressTable.Row r) {
 		if (r != null) {
 			leftStatus.setText(r.getSite() + " \"" + r.getLocal() + "\" " + (r.isDirection() ? "=>" : "<=") + " \"" + r.getRemote() + "\" " + language.getString("type." + r.getType()) + " " + FileUtils.formatSize(r.getSize()));
-			
+
 			String local, remote;
 			if ("DIR".equals(r.getType())) {
 				local = r.getLocal();

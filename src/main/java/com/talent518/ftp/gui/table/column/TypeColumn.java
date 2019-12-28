@@ -48,7 +48,7 @@ public class TypeColumn extends AbstractCellEditor implements TableCellRenderer 
 	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 		panel.setBackground(isSelected ? table.getSelectionBackground() : transparent);
 		type.setForeground(isSelected ? table.getSelectionForeground() : table.getForeground());
-		type.setText(language.getString("type." + value));
+		type.setText(language.getString("type." + ("DL".equals(value) ? "LNK" : value)));
 		return panel;
 	}
 }

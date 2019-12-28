@@ -306,13 +306,37 @@ public class FileTable extends JPanel {
 		}
 	}
 
+	private static int firstCompare(Row o1, Row o2) {
+		boolean d1 = "DIR".equals(o1.getType());
+		boolean d2 = "DIR".equals(o2.getType());
+
+		if (d1 && !d2)
+			return -1;
+		else if (!d1 && d2)
+			return 1;
+
+		boolean l1 = "LNK".equals(o1.getType());
+		boolean l2 = "LNK".equals(o2.getType());
+
+		if (l1 && !l2)
+			return -1;
+		else if (!l1 && l2)
+			return 1;
+
+		if (o1.isDir() && !o2.isDir())
+			return -1;
+		else if (!o1.isDir() && o2.isDir())
+			return 1;
+		else
+			return 0;
+	}
+
 	private static final Comparator<Row> nameComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return PinyinUtil.compareTo(o1.getName(), o2.getName());
 		}
@@ -320,10 +344,9 @@ public class FileTable extends JPanel {
 	private static final Comparator<Row> sizeComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return Long.compare(o1.getSize(), o2.getSize());
 		}
@@ -331,21 +354,15 @@ public class FileTable extends JPanel {
 	private static final Comparator<Row> typeComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
-
 			return o1.getType().compareTo(o2.getType());
 		}
 	};
 	private static final Comparator<Row> mtimeComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return o1.getMtime().compareTo(o2.getMtime());
 		}
@@ -353,10 +370,9 @@ public class FileTable extends JPanel {
 	private static final Comparator<Row> permsComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return o1.getPerms().compareTo(o2.getPerms());
 		}
@@ -364,10 +380,9 @@ public class FileTable extends JPanel {
 	private static final Comparator<Row> uidComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return Integer.compare(o1.getUid(), o2.getUid());
 		}
@@ -375,10 +390,9 @@ public class FileTable extends JPanel {
 	private static final Comparator<Row> gidComparator = new Comparator<Row>() {
 		@Override
 		public int compare(Row o1, Row o2) {
-			if (o1.isDir() && !o2.isDir())
-				return -1;
-			else if (!o1.isDir() && o2.isDir())
-				return 1;
+			int c = firstCompare(o1, o2);
+			if (c != 0)
+				return c;
 
 			return Integer.compare(o1.getGid(), o2.getGid());
 		}
@@ -632,6 +646,7 @@ public class FileTable extends JPanel {
 
 			if (Files.isSymbolicLink(f.toPath())) {
 				type = "LNK";
+				isDir = f.isDirectory();
 			} else if (f.isDirectory()) {
 				type = "DIR";
 				isDir = true;
@@ -740,7 +755,10 @@ public class FileTable extends JPanel {
 					o = size;
 					break;
 				case 2:
-					o = type;
+					if (isDir && "LNK".equals(type))
+						o = "DL";
+					else
+						o = type;
 					break;
 				case 3:
 					o = mtime;

@@ -403,15 +403,15 @@ public class FTP extends IProtocol {
 		error = null;
 		makeTime();
 		try {
-			ftp.noop();
-
-			boolean ret = ftp.logout();
-
-			ftp.disconnect();
-
+			if (isConnected()) {
+				ftp.noop();
+				ftp.logout();
+			}
+			if (ftp.isConnected()) {
+				ftp.disconnect();
+			}
 			setLogined(false);
-
-			return ret;
+			return true;
 		} catch (IOException e) {
 			log.error("logout failure", e);
 			error = e.getMessage();
@@ -420,8 +420,6 @@ public class FTP extends IProtocol {
 	}
 
 	public void dispose() {
-		if (ftp.isConnected()) {
-			logout();
-		}
+		logout();
 	}
 }

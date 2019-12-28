@@ -23,6 +23,7 @@ public class NameColumn extends AbstractCellEditor implements TableCellRenderer 
 	private static final long serialVersionUID = -4015532600021619257L;
 
 	private static final Icon folderIcon = new ImageIcon(FileTable.class.getResource("/icons/folder.png"));
+	private static final Icon folderLinkIcon = new ImageIcon(FileTable.class.getResource("/icons/folder_link.png"));
 	private static final Icon linkIcon = new ImageIcon(FileTable.class.getResource("/icons/link.png"));
 	private static final Icon fileIcon = new ImageIcon(FileTable.class.getResource("/icons/file.png"));
 	private static final Map<String, Icon> fileIcons = new HashMap<String, Icon>();
@@ -149,6 +150,8 @@ public class NameColumn extends AbstractCellEditor implements TableCellRenderer 
 
 		if ("DIR".equals(type)) {
 			icon.setIcon(folderIcon);
+		} else if ("DL".equals(type)) {
+			icon.setIcon(folderLinkIcon);
 		} else if ("LNK".equals(type)) {
 			icon.setIcon(linkIcon);
 		} else {

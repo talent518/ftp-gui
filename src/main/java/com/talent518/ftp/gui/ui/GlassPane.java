@@ -31,7 +31,7 @@ public abstract class GlassPane extends JComponent implements ActionListener, Mo
 	private final ResourceBundle language = Settings.language();
 	private final Timer timer = new Timer(3000 / frames.length, this);
 	private final Color bgColor = new Color(0x66000000, true);
-	private Font font = new Font(language.getString("app.font"), Font.PLAIN, 26);
+	private Font font = new Font(Settings.instance().getFont(), Font.PLAIN, 26);
 	private final String tip = language.getString("glassPane");
 	private int iframe = 0;
 
