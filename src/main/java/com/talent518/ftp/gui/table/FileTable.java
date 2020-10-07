@@ -679,8 +679,13 @@ public class FileTable extends JPanel {
 			sb.append(permissionToString(f, FTPFile.GROUP_ACCESS));
 			sb.append(permissionToString(f, FTPFile.WORLD_ACCESS));
 			perms = sb.toString();
-			uid = Integer.parseInt(f.getUser());
-			gid = Integer.parseInt(f.getGroup());
+			try {
+				uid = Integer.parseInt(f.getUser());
+				gid = Integer.parseInt(f.getGroup());
+			} catch(NumberFormatException e) {
+				uid = -1;
+				gid = -1;
+			}
 		}
 
 		public Row(LsEntry entry) {
