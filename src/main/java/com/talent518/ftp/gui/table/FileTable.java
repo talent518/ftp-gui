@@ -128,7 +128,7 @@ public class FileTable extends JPanel {
 		// mtime column(3)
 		tableColumn = table.getColumnModel().getColumn(3);
 		tableColumn.setMinWidth(100);
-		tableColumn.setMaxWidth(130);
+		tableColumn.setMaxWidth(145);
 		tableColumn.setCellRenderer(new StringColumn());
 
 		if (!isLocal) {
