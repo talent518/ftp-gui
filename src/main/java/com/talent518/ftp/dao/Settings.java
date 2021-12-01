@@ -18,7 +18,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public class Settings {
-	private static Logger log = Logger.getLogger(Settings.class);
+	private static Logger log;
 	public static final String ROOT_PATH = System.getProperty("user.home") + File.separator + ".ftp-gui";
 	private static final String SETTINGS_FILE = ROOT_PATH + File.separator + "settings.json";
 	public static final String LOG_PATH = ROOT_PATH + File.separator + "logs" + File.separator;
@@ -28,8 +28,10 @@ public class Settings {
 
 	static {
 		System.setProperty("logPath", Settings.LOG_PATH);
-		PropertyConfigurator.configure("log4j.properties");
+		PropertyConfigurator.configure(Settings.class.getResource("/log4j.properties"));
 
+		log = Logger.getLogger(Settings.class);
+	
 		FileReader reader = null;
 		try {
 			reader = new FileReader(new File(SETTINGS_FILE));
