@@ -14,6 +14,7 @@ public abstract class Validator {
 		return message;
 	}
 
+	@SuppressWarnings("resource")
 	public void setMessage(String format, Object... args) {
 		try {
 			format = Settings.language().getString(format);

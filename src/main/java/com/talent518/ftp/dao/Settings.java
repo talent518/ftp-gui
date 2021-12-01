@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 
 import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -26,6 +27,9 @@ public class Settings {
 	private static ResourceBundle language;
 
 	static {
+		System.setProperty("logPath", Settings.LOG_PATH);
+		PropertyConfigurator.configure("log4j.properties");
+
 		FileReader reader = null;
 		try {
 			reader = new FileReader(new File(SETTINGS_FILE));
