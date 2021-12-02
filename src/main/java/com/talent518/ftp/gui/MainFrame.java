@@ -883,14 +883,8 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				progressCleanMenu.setEnabled(false);
 				progressDeleteMenu.setEnabled(false);
 			} else {
-				progressTransferMenu.setEnabled(false);
+				progressTransferMenu.setEnabled(progressTable.getList().size() > 0);
 				progressSuspendMenu.setEnabled(false);
-				for (ProgressTable.Row r2 : progressTable.getList()) {
-					if (r2.getStatus() == ProgressTable.Row.STATUS_READY) {
-						progressTransferMenu.setEnabled(true);
-						break;
-					}
-				}
 				progressCleanMenu.setEnabled(progressTable.getList().size() > 0);
 				progressDeleteMenu.setEnabled(r != null);
 			}
@@ -1018,10 +1012,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		public void stop(boolean b) {
 			running.set(false);
 			closed.set(b);
-			synchronized (threads) {
-				for (Thread t : threads)
-					t.interrupt();
-			}
 		}
 
 		public void add(ProgressTable.Row row) {
@@ -1050,13 +1040,15 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			}
 		}
 
+		@SuppressWarnings("deprecation")
 		public void unwatch() {
 			synchronized (watchSet) {
 				watchSet.clear();
 			}
 			synchronized (watchThreads) {
 				for (Thread t : watchThreads)
-					t.interrupt();
+					t.stop();
+				watchThreads.clear();
 			}
 		}
 
@@ -1718,15 +1710,21 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 			};
 
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				if (isRunning()) {
 					if (running.get()) {
 						synchronized (threads) {
 							long time = System.currentTimeMillis();
-							for (TransferThread t : threads)
-								if (time - t.getTime() > 15000)
-									t.interrupt();
+							TransferThread[] a = new TransferThread[threads.size()];
+							for (TransferThread t : threads.toArray(a)) {
+								if (time - t.getTime() > 15000) {
+									t.stop();
+									threads.remove(t);
+									nThread.decrementAndGet();
+								}
+							}
 						}
 
 						synchronized (fileQueue) {
@@ -1754,8 +1752,11 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 					} else {
 						synchronized (threads) {
 							for (Thread t : threads)
-								t.interrupt();
+								t.stop();
+							threads.clear();
 						}
+						nThread.set(0);
+						diring.set(false);
 					}
 				} else {
 					println(language.getString("log.transferEnd"));
