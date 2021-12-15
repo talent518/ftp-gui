@@ -6,6 +6,8 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
@@ -264,27 +266,41 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 		toolBar.repaint();
 	}
 
+	private int isNeedBottom = 0;
+
 	private void initSplit() {
 		JScrollPane scrollPane = new JScrollPane(logText, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		JScrollBar scrollBar = scrollPane.getVerticalScrollBar();
 
+		scrollBar.addAdjustmentListener(new AdjustmentListener() {
+
+			public void adjustmentValueChanged(AdjustmentEvent evt) {
+				if (evt.getAdjustmentType() == AdjustmentEvent.TRACK && isNeedBottom <= 3) {
+					scrollBar.setValue(scrollBar.getModel().getMaximum() - scrollBar.getModel().getExtent());
+					isNeedBottom++;
+				}
+			}
+		});
+
 		logText.getDocument().addDocumentListener(new DocumentListener() {
+			private void updateRows() {
+				isNeedBottom = 0;
+				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
+			}
+
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
+				updateRows();
 			}
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
+				updateRows();
 			}
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				scrollBar.setValue(scrollBar.getMaximum());
-				tabbedPane.setTitleAt(2, String.format(language.getString("tabbed.logging"), logText.getLineCount() - 1));
+				updateRows();
 			}
 		});
 		logText.addMouseListener(new MouseAdapter() {
