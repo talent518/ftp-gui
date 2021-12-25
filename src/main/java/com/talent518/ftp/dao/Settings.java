@@ -22,12 +22,16 @@ public class Settings {
 	public static final String ROOT_PATH = System.getProperty("user.home") + File.separator + ".ftp-gui";
 	private static final String SETTINGS_FILE = ROOT_PATH + File.separator + "settings.json";
 	public static final String LOG_PATH = ROOT_PATH + File.separator + "logs" + File.separator;
-	private static Settings _instance;
 	private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
+	public static final boolean isJar;
+	private static Settings _instance;
 	private static ResourceBundle language;
 
 	static {
+		isJar = Settings.class.getResource("").getProtocol().equals("jar");
+
 		System.setProperty("logPath", Settings.LOG_PATH);
+		System.setProperty("threshold", (isJar ? "" : "info,debug,") + "warn,error,fatal");
 		PropertyConfigurator.configure(Settings.class.getResource("/log4j.properties"));
 
 		log = Logger.getLogger(Settings.class);
