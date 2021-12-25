@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -40,6 +39,7 @@ import com.talent518.ftp.gui.form.FormField;
 import com.talent518.ftp.gui.form.IntegerField;
 import com.talent518.ftp.gui.form.SelectField;
 import com.talent518.ftp.gui.ui.SiteTabbedPaneUI;
+import com.talent518.ftp.gui.ui.VerticalFlowLayout;
 import com.talent518.ftp.validator.RequiredValidator;
 
 public class SitesDialog extends JDialog {
@@ -90,7 +90,7 @@ public class SitesDialog extends JDialog {
 		setContentPane(panel);
 
 		JScrollPane left = new JScrollPane(siteList, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		left.setPreferredSize(new Dimension(150, Integer.MAX_VALUE));
+		left.setPreferredSize(new Dimension(150, HEIGHT));
 		left.setBorder(new LineBorder(UIManager.getColor("TabbedPane.darkShadow"), 1));
 
 		JLabel up = new JLabel(upIcon);
@@ -257,7 +257,7 @@ public class SitesDialog extends JDialog {
 		});
 	}
 
-	private class SiteForm extends JPanel {
+	private class SiteForm extends JPanel implements ActionListener {
 		private static final long serialVersionUID = -6139710137425580998L;
 
 		private Site mSite = null;
@@ -301,6 +301,8 @@ public class SitesDialog extends JDialog {
 		private SelectField transferModeField;
 		private SelectField protField;
 
+		private FormField privateKeyField;
+
 		public SiteForm() {
 			super();
 
@@ -331,7 +333,7 @@ public class SitesDialog extends JDialog {
 				}
 			});
 
-			btn.setPreferredSize(new Dimension(Integer.MAX_VALUE, 30));
+			btn.setPreferredSize(new Dimension(WIDTH, 30));
 			btn.add(confirm);
 			btn.add(cancel);
 
@@ -367,86 +369,27 @@ public class SitesDialog extends JDialog {
 
 			encodingField.getField().setSelectedItem(site.getEncoding());
 
-			if ("ftps".equals(site.getProtocol())) {
-				proxyHostField.getField().setEnabled(false);
-				proxyHostField.getField().setText("");
-				proxyPortField.getField().setEnabled(false);
-				proxyPortField.getField().setValue(0);
-				proxyUserField.getField().setEnabled(false);
-				proxyUserField.getField().setText("");
-				proxyPassField.getField().setEnabled(false);
-				proxyPassField.getField().setText("");
+			proxyHostField.getField().setText(site.getProxyHost());
+			proxyPortField.getField().setValue(site.getProxyPort());
+			proxyUserField.getField().setText(site.getProxyUser());
+			proxyPassField.getField().setText(site.getProxyPassword());
+			
+			privateKeyField.getField().setText(site.getPrivateKey());
 
-				isImplicitField.getField().setEnabled(true);
-				isImplicitField.getField().setSelected(site.isImplicit());
-				secretField.getField().setEnabled(true);
-				secretField.getField().setSelectedItem(site.getSecret());
-				trustmgrField.getField().setEnabled(true);
-				trustmgrField.getField().setSelectedItem(site.getTrustmgr());
-			} else {
-				proxyHostField.getField().setEnabled(true);
-				proxyHostField.getField().setText(site.getProxyHost());
-				proxyPortField.getField().setEnabled(true);
-				proxyPortField.getField().setValue(site.getProxyPort());
-				proxyUserField.getField().setEnabled(true);
-				proxyUserField.getField().setText(site.getProxyUser());
-				proxyPassField.getField().setEnabled(true);
-				proxyPassField.getField().setText(site.getProxyPassword());
+			isImplicitField.getField().setSelected(false);
+			secretField.getField().setSelectedIndex(-1);
+			trustmgrField.getField().setSelectedIndex(-1);
 
-				isImplicitField.getField().setEnabled(false);
-				isImplicitField.getField().setSelected(false);
-				secretField.getField().setEnabled(false);
-				secretField.getField().setSelectedIndex(-1);
-				trustmgrField.getField().setEnabled(false);
-				trustmgrField.getField().setSelectedIndex(-1);
-			}
+			hiddenField.getField().setSelected(site.isHidden());
+			serverTypeField.getField().setSelectedItem(site.getServerType());
+			saveUnparseableField.getField().setSelected(site.isSaveUnparseable());
+			binaryTransferField.getField().setSelected(site.isBinaryTransfer());
+			localActiveField.getField().setSelected(site.isLocalActive());
+			useEpsvWithIPv4Field.getField().setSelected(site.isUseEpsvWithIPv4());
+			isMlsdField.getField().setSelected(site.isMlsd());
 
-			if ("sftp".equals(site.getProtocol())) {
-				hiddenField.getField().setEnabled(false);
-				hiddenField.getField().setSelected(false);
-				serverTypeField.getField().setEnabled(false);
-				serverTypeField.getField().setSelectedIndex(-1);
-				saveUnparseableField.getField().setEnabled(false);
-				saveUnparseableField.getField().setSelected(false);
-				binaryTransferField.getField().setEnabled(false);
-				binaryTransferField.getField().setSelected(false);
-				localActiveField.getField().setEnabled(false);
-				localActiveField.getField().setSelected(false);
-				useEpsvWithIPv4Field.getField().setEnabled(false);
-				useEpsvWithIPv4Field.getField().setSelected(false);
-				isMlsdField.getField().setEnabled(false);
-				isMlsdField.getField().setSelected(false);
-
-				transferModeField.getField().setEnabled(false);
-				transferModeField.getField().setSelectedIndex(-1);
-				protField.getField().setEnabled(false);
-				protField.getField().setSelectedIndex(-1);
-			} else {
-				hiddenField.getField().setEnabled(true);
-				hiddenField.getField().setSelected(site.isHidden());
-				serverTypeField.getField().setEnabled(true);
-				serverTypeField.getField().setSelectedItem(site.getServerType());
-				saveUnparseableField.getField().setEnabled(true);
-				saveUnparseableField.getField().setSelected(site.isSaveUnparseable());
-				binaryTransferField.getField().setEnabled(true);
-				binaryTransferField.getField().setSelected(site.isBinaryTransfer());
-				localActiveField.getField().setEnabled(true);
-				localActiveField.getField().setSelected(site.isLocalActive());
-				useEpsvWithIPv4Field.getField().setEnabled(true);
-				useEpsvWithIPv4Field.getField().setSelected(site.isUseEpsvWithIPv4());
-				isMlsdField.getField().setEnabled(true);
-				isMlsdField.getField().setSelected(site.isMlsd());
-
-				transferModeField.getField().setEnabled(true);
-				transferModeField.getField().setSelectedItem(site.getTransferMode());
-				if ("ftps".equals(site.getProtocol())) {
-					protField.getField().setEnabled(true);
-					protField.getField().setSelectedItem(site.getProt());
-				} else {
-					protField.getField().setEnabled(false);
-					protField.getField().setSelectedItem(-1);
-				}
-			}
+			transferModeField.getField().setSelectedItem(site.getTransferMode());
+			protField.getField().setSelectedItem(site.getProt());
 		}
 
 		public void save() {
@@ -473,6 +416,8 @@ public class SitesDialog extends JDialog {
 			mSite.setProxyPort(proxyPortField.getValue());
 			mSite.setProxyUser(proxyUserField.getValue());
 			mSite.setProxyPassword(proxyPassField.getValue());
+			
+			mSite.setPrivateKey(privateKeyField.getValue());
 
 			mSite.setImplicit(isImplicitField.getValue());
 			mSite.setSecret(secretField.getValue());
@@ -502,6 +447,7 @@ public class SitesDialog extends JDialog {
 		private void initBasic() {
 			nameField = new FormField("site.name", "", RequiredValidator.class);
 			protocolField = new SelectField("site.protocol", "", Site.getProtocols());
+			protocolField.getField().addActionListener(this);
 			hostField = new FormField("site.host", "", RequiredValidator.class);
 			portField = new IntegerField("site.port", 0, 0, 65535, 1);
 			userField = new FormField("site.user", "", RequiredValidator.class);
@@ -513,13 +459,14 @@ public class SitesDialog extends JDialog {
 			watchField = new BooleanField("site.watch", false, "site.watch.help");
 
 			JPanel panel = new JPanel();
-			GridLayout layout = new GridLayout(12, 1, 10, 10);
 
 			panel.setBorder(BorderFactory.createEmptyBorder());
-			panel.setLayout(layout);
-			panel.setPreferredSize(new Dimension(100, layout.getRows() * 40));
+			panel.setLayout(new VerticalFlowLayout(VerticalFlowLayout.TOP, 10, 10, true));
 
-			tabbed.add(language.getString("site.basic"), new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
+			JScrollPane scrollPane = new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+			scrollPane.getVerticalScrollBar().setUnitIncrement(17);
+
+			tabbed.add(language.getString("site.basic"), scrollPane);
 
 			panel.add(nameField);
 			panel.add(protocolField);
@@ -535,14 +482,15 @@ public class SitesDialog extends JDialog {
 
 			for (int i = 0; i < panel.getComponentCount(); i++) {
 				Component com = panel.getComponent(i);
+				com.setPreferredSize(new Dimension(WIDTH, 40));
 				if (com instanceof FormField) {
-					((FormField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
+					((FormField) com).getLabel().setPreferredSize(new Dimension(80, HEIGHT));
 				} else if (com instanceof IntegerField) {
-					((IntegerField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
+					((IntegerField) com).getLabel().setPreferredSize(new Dimension(80, HEIGHT));
 				} else if (com instanceof BooleanField) {
-					((BooleanField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
+					((BooleanField) com).getLabel().setPreferredSize(new Dimension(80, HEIGHT));
 				} else if (com instanceof SelectField) {
-					((SelectField) com).getLabel().setPreferredSize(new Dimension(80, Integer.MAX_VALUE));
+					((SelectField) com).getLabel().setPreferredSize(new Dimension(80, HEIGHT));
 				}
 			}
 		}
@@ -573,15 +521,18 @@ public class SitesDialog extends JDialog {
 
 			transferModeField = new SelectField("site.transferMode", "", "site.transferMode.help", new String[] { "stream", "block", "compressed" });
 			protField = new SelectField("site.prot", "", "site.prot.help", new String[] { "Clear", "Safe", "Confidential", "Private" });
+			
+			privateKeyField = new FormField("site.privateKey", "");
 
 			JPanel panel = new JPanel();
-			GridLayout layout = new GridLayout(17, 1, 10, 10);
 
 			panel.setBorder(BorderFactory.createEmptyBorder());
-			panel.setLayout(layout);
-			panel.setPreferredSize(new Dimension(100, layout.getRows() * 40));
+			panel.setLayout(new VerticalFlowLayout(VerticalFlowLayout.TOP, 10, 10, true));
 
-			tabbed.add(language.getString("site.advanced"), new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER));
+			JScrollPane scrollPane = new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+			scrollPane.getVerticalScrollBar().setUnitIncrement(17);
+
+			tabbed.add(language.getString("site.advanced"), scrollPane);
 
 			panel.add(encodingField);
 
@@ -589,6 +540,8 @@ public class SitesDialog extends JDialog {
 			panel.add(proxyPortField);
 			panel.add(proxyUserField);
 			panel.add(proxyPassField);
+
+			panel.add(privateKeyField);
 
 			panel.add(isImplicitField);
 			panel.add(secretField);
@@ -607,16 +560,43 @@ public class SitesDialog extends JDialog {
 
 			for (int i = 0; i < panel.getComponentCount(); i++) {
 				Component com = panel.getComponent(i);
+				com.setPreferredSize(new Dimension(WIDTH, 40));
 				if (com instanceof FormField) {
-					((FormField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((FormField) com).getLabel().setPreferredSize(new Dimension(120, HEIGHT));
 				} else if (com instanceof IntegerField) {
-					((IntegerField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((IntegerField) com).getLabel().setPreferredSize(new Dimension(120, HEIGHT));
 				} else if (com instanceof BooleanField) {
-					((BooleanField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((BooleanField) com).getLabel().setPreferredSize(new Dimension(120, HEIGHT));
 				} else if (com instanceof SelectField) {
-					((SelectField) com).getLabel().setPreferredSize(new Dimension(120, Integer.MAX_VALUE));
+					((SelectField) com).getLabel().setPreferredSize(new Dimension(120, HEIGHT));
 				}
 			}
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			boolean isFTPS = "ftps".equals(protocolField.getValue());
+			boolean isFTP = "ftp".equals(protocolField.getValue()) || isFTPS;
+			boolean isSFTP = "sftp".equals(protocolField.getValue());
+
+			// ftps
+			isImplicitField.setVisible(isFTPS);
+			secretField.setVisible(isFTPS);
+			trustmgrField.setVisible(isFTPS);
+			protField.setVisible(isFTPS);
+
+			// ftp and ftps
+			hiddenField.setVisible(isFTP);
+			serverTypeField.setVisible(isFTP);
+			saveUnparseableField.setVisible(isFTP);
+			binaryTransferField.setVisible(isFTP);
+			localActiveField.setVisible(isFTP);
+			useEpsvWithIPv4Field.setVisible(isFTP);
+			isMlsdField.setVisible(isFTP);
+			transferModeField.setVisible(isFTP);
+			
+			// sftp
+			privateKeyField.setVisible(isSFTP);
 		}
 	}
 }

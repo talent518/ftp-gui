@@ -58,7 +58,7 @@ public class SelectField extends JPanel {
 		setLayout(new BorderLayout(10, 10));
 
 		label = new JLabel(language.getString(key));
-		label.setPreferredSize(new Dimension(60, Integer.MAX_VALUE));
+		label.setPreferredSize(new Dimension(60, HEIGHT));
 		label.setHorizontalAlignment(SwingConstants.RIGHT);
 
 		field = new JComboBox<String>();
@@ -88,7 +88,7 @@ public class SelectField extends JPanel {
 		center.setLayout(new BorderLayout(10, 10));
 		center.add(field, BorderLayout.WEST);
 
-		icon.setPreferredSize(new Dimension(40, Integer.MAX_VALUE));
+		icon.setPreferredSize(new Dimension(40, HEIGHT));
 		icon.setHorizontalAlignment(SwingConstants.CENTER);
 		icon.setVerticalAlignment(SwingConstants.CENTER);
 		setHelp(null);
