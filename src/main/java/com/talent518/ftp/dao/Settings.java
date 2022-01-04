@@ -31,7 +31,7 @@ public class Settings {
 		isJar = Settings.class.getResource("").getProtocol().equals("jar");
 
 		System.setProperty("logPath", Settings.LOG_PATH);
-		System.setProperty("threshold", (isJar ? "" : "info,debug,") + "warn,error,fatal");
+		System.setProperty("threshold", isJar ? "INFO" : "DEBUG");
 		PropertyConfigurator.configure(Settings.class.getResource("/log4j.properties"));
 
 		log = Logger.getLogger(Settings.class);
