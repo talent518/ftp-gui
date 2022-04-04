@@ -376,9 +376,9 @@ public class SitesDialog extends JDialog {
 			
 			privateKeyField.getField().setText(site.getPrivateKey());
 
-			isImplicitField.getField().setSelected(false);
-			secretField.getField().setSelectedIndex(-1);
-			trustmgrField.getField().setSelectedIndex(-1);
+			isImplicitField.getField().setSelected(site.isImplicit());
+			secretField.getField().setSelectedItem(site.getSecret());
+			trustmgrField.getField().setSelectedItem(site.getTrustmgr());
 
 			hiddenField.getField().setSelected(site.isHidden());
 			serverTypeField.getField().setSelectedItem(site.getServerType());
