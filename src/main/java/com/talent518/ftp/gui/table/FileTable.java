@@ -36,9 +36,10 @@ import javax.swing.table.TableColumn;
 
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.log4j.Logger;
+import org.apache.sshd.sftp.client.SftpClient.Attributes;
+import org.apache.sshd.sftp.client.SftpClient.DirEntry;
+import org.apache.sshd.sftp.common.SftpConstants;
 
-import com.jcraft.jsch.ChannelSftp.LsEntry;
-import com.jcraft.jsch.SftpATTRS;
 import com.talent518.ftp.dao.Settings;
 import com.talent518.ftp.gui.table.column.NameColumn;
 import com.talent518.ftp.gui.table.column.SizeColumn;
@@ -688,33 +689,64 @@ public class FileTable extends JPanel {
 			}
 		}
 
-		public Row(LsEntry entry) {
-			SftpATTRS attrs = entry.getAttrs();
+		public Row(DirEntry entry) {
+			Attributes attrs = entry.getAttributes();
 
-			type = "Unknown";
-			if (attrs.isDir()) {
-				type = "DIR";
-				isDir = true;
-			} else if (attrs.isReg()) {
-				type = "REG";
-			} else if (attrs.isLink()) {
-				type = "LNK";
-			} else if (attrs.isBlk()) {
-				type = "BLK";
-			} else if (attrs.isChr()) {
-				type = "CHR";
-			} else if (attrs.isFifo()) {
-				type = "FIFO";
-			} else if (attrs.isSock()) {
-				type = "SOCK";
+			switch (attrs.getType()) {
+				case SftpConstants.SSH_FILEXFER_TYPE_REGULAR:
+					type = "REG";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_DIRECTORY:
+					type = "DIR";
+					isDir = true;
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_SYMLINK:
+					type = "LNK";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_SPECIAL:
+					type = "SPEC";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_SOCKET:
+					type = "SOCK";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_CHAR_DEVICE:
+					type = "CHR";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_BLOCK_DEVICE:
+					type = "BLK";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_FIFO:
+					type = "FIFO";
+					break;
+				case SftpConstants.SSH_FILEXFER_TYPE_UNKNOWN:
+				default:
+					type = "Unknown";
+					break;
 			}
 
 			name = entry.getFilename();
-			perms = attrs.getPermissionsString();
-			mtime = dateFormat.format(new Date((long) (attrs.getMTime()) * 1000));
+			perms = toString(attrs.getPermissions());
+			mtime = dateFormat.format(new Date(attrs.getModifyTime().toMillis()));
 			size = attrs.getSize();
-			uid = attrs.getUId();
-			gid = attrs.getGId();
+			uid = attrs.getUserId();
+			gid = attrs.getGroupId();
+		}
+		
+		private String toString(int perms) {
+			StringBuffer sb = new StringBuffer();
+
+			sb.append("DIR".equals(type) ? 'd' : ("LNK".equals(type) ? 'l' : '-'));
+			sb.append((perms & 0400) == 0 ? '-' : 'r');
+			sb.append((perms & 0200) == 0 ? '-' : 'w');
+			sb.append((perms & 0100) == 0 ? '-' : 'x');
+			sb.append((perms & 040) == 0 ? '-' : 'r');
+			sb.append((perms & 020) == 0 ? '-' : 'w');
+			sb.append((perms & 010) == 0 ? '-' : 'x');
+			sb.append((perms & 04) == 0 ? '-' : 'r');
+			sb.append((perms & 02) == 0 ? '-' : 'w');
+			sb.append((perms & 01) == 0 ? '-' : 'x');
+
+			return sb.toString();
 		}
 
 		private char formatType(int _type) {

@@ -103,7 +103,7 @@ public class FormField extends JPanel {
 		return field.getText().trim();
 	}
 
-	private void setHelp(String help) {
+	public void setHelp(String help) {
 		boolean visible = true;
 		if (help != null && help.length() > 0) {
 			icon.setToolTipText(help);
@@ -125,6 +125,7 @@ public class FormField extends JPanel {
 				return false;
 			}
 		}
+		setHelp(null);
 		return true;
 	}
 }

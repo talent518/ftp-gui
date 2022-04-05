@@ -56,6 +56,7 @@ public class Site implements Cloneable {
 	private boolean isMlsd;
 
 	private String privateKey;
+	private String passphrase;
 	private String transferMode;
 	private String prot;
 
@@ -316,6 +317,14 @@ public class Site implements Cloneable {
 
 	public void setPrivateKey(String privateKey) {
 		this.privateKey = privateKey;
+	}
+	
+	public String getPassphrase() {
+		return passphrase;
+	}
+	
+	public void setPassphrase(String passphrase) {
+		this.passphrase = passphrase;
 	}
 
 	public Map<String, Favorite> getFavorites() {

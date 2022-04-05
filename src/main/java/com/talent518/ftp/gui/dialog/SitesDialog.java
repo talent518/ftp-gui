@@ -39,6 +39,7 @@ import com.talent518.ftp.gui.form.FormField;
 import com.talent518.ftp.gui.form.IntegerField;
 import com.talent518.ftp.gui.form.SelectField;
 import com.talent518.ftp.gui.ui.SiteTabbedPaneUI;
+import com.talent518.ftp.gui.ui.Toast;
 import com.talent518.ftp.gui.ui.VerticalFlowLayout;
 import com.talent518.ftp.validator.RequiredValidator;
 
@@ -175,9 +176,9 @@ public class SitesDialog extends JDialog {
 				int i = siteList.getSelectedIndex();
 				String s = siteList.getSelectedValue();
 
+				siteForm.setSite(null);
 				siteMap.remove(s);
 				model.removeElement(s);
-
 				siteList.setSelectedIndex(i < model.size() ? i : i - 1);
 				siteList.revalidate();
 			}
@@ -247,11 +248,23 @@ public class SitesDialog extends JDialog {
 
 		siteList.setFixedCellHeight(30);
 		siteList.addListSelectionListener(new ListSelectionListener() {
+			int i = -1;
+
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
 				if (!siteList.getValueIsAdjusting()) {
-					siteForm.save();
-					siteForm.setSite(siteMap.get(siteList.getSelectedValue()));
+					if(i == siteList.getSelectedIndex()) {
+						return;
+					}
+
+					if(siteForm.save()) {
+						siteForm.setSite(siteMap.get(siteList.getSelectedValue()));
+						i = siteList.getSelectedIndex();
+					} else {
+						siteList.setSelectedIndex(i);
+						siteForm.setSite(siteMap.get(siteList.getSelectedValue()));
+						siteForm.alert(false);
+					}
 				}
 			}
 		});
@@ -262,8 +275,8 @@ public class SitesDialog extends JDialog {
 
 		private Site mSite = null;
 
-		final JButton confirm = new JButton(language.getString("site.confirm"));
-		final JButton cancel = new JButton(language.getString("site.cancel"));
+		final JButton save = new JButton(language.getString("site.save"));
+		final JButton close = new JButton(language.getString("site.close"));
 
 		private JTabbedPane tabbed = new JTabbedPane(JTabbedPane.TOP);
 
@@ -302,16 +315,14 @@ public class SitesDialog extends JDialog {
 		private SelectField protField;
 
 		private FormField privateKeyField;
+		private FormField passphraseField;
 
 		public SiteForm() {
 			super();
 
 			final ButtonForm btn = new ButtonForm();
-			confirm.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					save();
-
+			save.addActionListener(e -> {
+				if(save()) {
 					settings.getSiteNames().clear();
 					for (int i = 0; i < model.size(); i++)
 						settings.getSiteNames().add(model.get(i));
@@ -321,21 +332,21 @@ public class SitesDialog extends JDialog {
 						settings.getSites().put(key, siteMap.get(key));
 
 					settings.save();
-
+					
 					mainFrame.reInitSite();
-					SitesDialog.this.dispose();
+
+					alert(true);
+				} else {
+					alert(false);
 				}
 			});
-			cancel.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					SitesDialog.this.dispose();
-				}
+			close.addActionListener(e -> {
+				SitesDialog.this.dispose();
 			});
 
 			btn.setPreferredSize(new Dimension(WIDTH, 30));
-			btn.add(confirm);
-			btn.add(cancel);
+			btn.add(save);
+			btn.add(close);
 
 			tabbed.setUI(new SiteTabbedPaneUI());
 
@@ -347,6 +358,11 @@ public class SitesDialog extends JDialog {
 			initBasic();
 			initAdvanced();
 		}
+		
+		public void alert(boolean ok) {
+			String msg = language.getString(ok ? "site.save.success" : "site.save.failure");
+			new Toast(SitesDialog.this, msg, 1000, ok ? Toast.TYPE_SUCCESS : Toast.TYPE_ERROR).start();
+		}
 
 		public void setSite(Site site) {
 			mSite = site;
@@ -356,11 +372,15 @@ public class SitesDialog extends JDialog {
 			}
 
 			nameField.getField().setText(site.getName());
+			nameField.setHelp(null);
 			protocolField.getField().setSelectedItem(site.getProtocol());
 			hostField.getField().setText(site.getHost());
+			hostField.setHelp(null);
 			portField.getField().setValue(site.getPort());
 			userField.getField().setText(site.getUsername());
+			userField.setHelp(null);
 			passField.getField().setText(site.getPassword());
+			passField.setHelp(null);
 			remoteField.getField().setText(site.getRemote());
 			localField.getField().setText(site.getLocal());
 			remarkField.getField().setText(site.getRemark());
@@ -392,9 +412,14 @@ public class SitesDialog extends JDialog {
 			protField.getField().setSelectedItem(site.getProt());
 		}
 
-		public void save() {
-			if (mSite == null)
-				return;
+		public boolean save() {
+			if(mSite == null) {
+				return true;
+			}
+
+			if (!nameField.validator() || !hostField.validator() || !userField.validator() || !passField.validator()) {
+				return false;
+			}
 
 			String name = mSite.getName();
 
@@ -433,7 +458,7 @@ public class SitesDialog extends JDialog {
 
 			mSite.setTransferMode(transferModeField.getValue());
 			mSite.setProt(protField.getValue());
-
+			
 			int i = model.indexOf(name);
 			if (i >= 0) {
 				model.set(i, nameField.getValue());
@@ -442,6 +467,8 @@ public class SitesDialog extends JDialog {
 			} else {
 				mSite = null;
 			}
+
+			return true;
 		}
 
 		private void initBasic() {
@@ -523,6 +550,7 @@ public class SitesDialog extends JDialog {
 			protField = new SelectField("site.prot", "", "site.prot.help", new String[] { "Clear", "Safe", "Confidential", "Private" });
 			
 			privateKeyField = new FormField("site.privateKey", "");
+			passphraseField = new FormField("site.passphrase", "");
 
 			JPanel panel = new JPanel();
 
@@ -542,6 +570,7 @@ public class SitesDialog extends JDialog {
 			panel.add(proxyPassField);
 
 			panel.add(privateKeyField);
+			panel.add(passphraseField);
 
 			panel.add(isImplicitField);
 			panel.add(secretField);
@@ -576,8 +605,14 @@ public class SitesDialog extends JDialog {
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			boolean isFTPS = "ftps".equals(protocolField.getValue());
-			boolean isFTP = "ftp".equals(protocolField.getValue()) || isFTPS;
+			boolean isFTP = "ftp".equals(protocolField.getValue());
+			boolean isFTPorFTPS = isFTP || isFTPS;
 			boolean isSFTP = "sftp".equals(protocolField.getValue());
+			
+			proxyHostField.setVisible(!isFTPS);
+			proxyPortField.setVisible(!isFTPS);
+			proxyUserField.setVisible(!isFTPS);
+			proxyPassField.setVisible(isFTP);
 
 			// ftps
 			isImplicitField.setVisible(isFTPS);
@@ -586,17 +621,18 @@ public class SitesDialog extends JDialog {
 			protField.setVisible(isFTPS);
 
 			// ftp and ftps
-			hiddenField.setVisible(isFTP);
-			serverTypeField.setVisible(isFTP);
-			saveUnparseableField.setVisible(isFTP);
-			binaryTransferField.setVisible(isFTP);
-			localActiveField.setVisible(isFTP);
-			useEpsvWithIPv4Field.setVisible(isFTP);
-			isMlsdField.setVisible(isFTP);
-			transferModeField.setVisible(isFTP);
+			hiddenField.setVisible(isFTPorFTPS);
+			serverTypeField.setVisible(isFTPorFTPS);
+			saveUnparseableField.setVisible(isFTPorFTPS);
+			binaryTransferField.setVisible(isFTPorFTPS);
+			localActiveField.setVisible(isFTPorFTPS);
+			useEpsvWithIPv4Field.setVisible(isFTPorFTPS);
+			isMlsdField.setVisible(isFTPorFTPS);
+			transferModeField.setVisible(isFTPorFTPS);
 			
 			// sftp
 			privateKeyField.setVisible(isSFTP);
+			passphraseField.setVisible(isSFTP);
 		}
 	}
 }
