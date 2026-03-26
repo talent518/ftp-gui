@@ -130,6 +130,7 @@ public class Settings {
 	
 	private String font = null;
 
+	@SuppressWarnings("deprecation")
 	public Locale getLocale() {
 		if (locale == null) {
 			synchronized (Settings.class) {
