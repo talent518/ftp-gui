@@ -25,6 +25,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumn;
+import javax.swing.table.TableCellRenderer;
 
 import org.apache.log4j.Logger;
 
@@ -43,6 +44,7 @@ public class ProgressTable extends JPanel {
 	private static final Logger log = Logger.getLogger(ProgressTable.class);
 
 	private final ResourceBundle language = Settings.language();
+	private final int fontSize = Settings.instance().getFontSize();
 
 	private JTable table;
 	private Model model;
@@ -91,57 +93,32 @@ public class ProgressTable extends JPanel {
 			}
 		});
 
-		TableColumn tableColumn;
-
-		// site column(0)
-		tableColumn = table.getColumnModel().getColumn(0);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(100);
-		tableColumn.setCellRenderer(new StringColumn());
+		// id column(0)
+		setColumn(0, "column.id", new StringColumn());
 
 		// site column(1)
-		tableColumn = table.getColumnModel().getColumn(1);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(100);
-		tableColumn.setCellRenderer(new StringColumn());
+		setColumn(1, "column.site", new StringColumn());
 
 		// local column(2)
-		tableColumn = table.getColumnModel().getColumn(2);
-		tableColumn.setCellRenderer(new StringColumn());
+		setColumn(2, null, new StringColumn());
 
 		// direction column(3)
-		tableColumn = table.getColumnModel().getColumn(3);
-		tableColumn.setMinWidth(35);
-		tableColumn.setMaxWidth(Integer.valueOf(language.getString("direction.size")));
-		tableColumn.setCellRenderer(new DirectionColumn());
+		setColumn(3, "column.direction", new DirectionColumn());
 
 		// remote column(4)
-		tableColumn = table.getColumnModel().getColumn(4);
-		tableColumn.setCellRenderer(new StringColumn());
+		setColumn(4, null, new StringColumn());
 
 		// type column(5)
-		tableColumn = table.getColumnModel().getColumn(5);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(Integer.valueOf(language.getString("type.size")));
-		tableColumn.setCellRenderer(new TypeColumn());
+		setColumn(5, "column.type", new TypeColumn());
 
 		// size column(6)
-		tableColumn = table.getColumnModel().getColumn(6);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(60);
-		tableColumn.setCellRenderer(new SizeColumn());
+		setColumn(6, "column.size", new SizeColumn());
 
 		// progress column(7)
-		tableColumn = table.getColumnModel().getColumn(7);
-		tableColumn.setMinWidth(100);
-		tableColumn.setMaxWidth(100);
-		tableColumn.setCellRenderer(new ProgressColumn());
+		setColumn(7, "column.progress", new ProgressColumn());
 
 		// status column(8)
-		tableColumn = table.getColumnModel().getColumn(8);
-		tableColumn.setMinWidth(60);
-		tableColumn.setMaxWidth(Integer.valueOf(language.getString("status.size")));
-		tableColumn.setCellRenderer(new StatusColumn());
+		setColumn(8, "column.status", new StatusColumn());
 
 		setBorder(BorderFactory.createEmptyBorder());
 		setLayout(new BorderLayout(0, 0));
@@ -155,6 +132,24 @@ public class ProgressTable extends JPanel {
 				}
 			}
 		});
+	}
+
+	private void setColumn(int col, String res, TableCellRenderer renderer) {
+		TableColumn column = table.getColumnModel().getColumn(col);
+		if(res != null) {
+			String[] vals = language.getString(res).split(":");
+			int d = Integer.valueOf(vals[0]) * fontSize + 10;
+			if(vals.length > 1) {
+				int d2 = Integer.valueOf(vals[1]) * fontSize + 10;
+				column.setMinWidth(d);
+				column.setMaxWidth(d2);
+			} else {
+				column.setMinWidth(d);
+				column.setMaxWidth(d);
+				column.setPreferredWidth(d);
+			}
+		}
+		column.setCellRenderer(renderer);
 	}
 
 	public JTable getTable() {
@@ -496,7 +491,7 @@ public class ProgressTable extends JPanel {
 		};
 		// @formatter:on
 		private List<Row> list = new ArrayList<Row>();
-		private final int N = 0;
+		private final int N = 10;
 		private Row err = new Row();
 
 		public Model() {

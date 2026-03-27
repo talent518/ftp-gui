@@ -129,6 +129,7 @@ public class Settings {
 	private int logLines = 100000;
 	
 	private String font = null;
+	private int fontSize = 12;
 
 	@SuppressWarnings("deprecation")
 	public Locale getLocale() {
@@ -228,5 +229,13 @@ public class Settings {
 	
 	public void setFont(String font) {
 		this.font = font;
+	}
+
+	public int getFontSize() {
+		return fontSize;
+	}
+
+	public void setFontSize(int size) {
+		fontSize = size;
 	}
 }

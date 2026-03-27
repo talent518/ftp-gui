@@ -11,6 +11,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
 import javax.swing.table.TableCellRenderer;
 
 import com.talent518.ftp.dao.Settings;
@@ -37,6 +38,7 @@ public class StatusColumn extends AbstractCellEditor implements TableCellRendere
 		super();
 
 		status = new JLabel();
+		status.setHorizontalAlignment(SwingConstants.CENTER);
 
 		panel = new JPanel();
 		panel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));

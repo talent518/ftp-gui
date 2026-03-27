@@ -10,6 +10,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -162,8 +163,29 @@ public class SFTP extends IProtocol {
 		error = null;
 		makeTime();
 		try {
-			SftpPath path = fs.getDefaultDir().resolve(remote);
-			return Files.deleteIfExists(path);
+			List<FileTable.Row> rows = new ArrayList<FileTable.Row>();
+			if (ls(remote, rows)) {
+				if (deleteListener != null)
+					deleteListener.ls(remote);
+				for (FileTable.Row r : rows) {
+					if (r.isDir()) {
+						if (!rmdir(remote + '/' + r.getName()))
+							return false;
+						if (deleteListener != null)
+							deleteListener.rmdir(remote + '/' + r.getName());
+					} else {
+						if (!unlink(remote + '/' + r.getName()))
+							return false;
+						if (deleteListener != null)
+							deleteListener.unlink(remote + '/' + r.getName());
+					}
+				}
+				SftpPath path = fs.getDefaultDir().resolve(remote);
+				Files.delete(path);
+				return true;
+			} else {
+				return false;
+			}
 		} catch (IOException e) {
 			log.error("rmdir error", e);
 			error = e.getMessage();

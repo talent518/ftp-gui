@@ -39,6 +39,7 @@ public class SettingsDialog extends JDialog {
 	final IntegerField triesField;
 	final IntegerField logLinesField;
 	final SelectField fontField;
+	final IntegerField fontSizeField;
 	final ButtonForm btn = new ButtonForm();
 	final JButton confirm = new JButton(language.getString("favorite.confirm"));
 	final JButton cancel = new JButton(language.getString("favorite.cancel"));
@@ -51,14 +52,14 @@ public class SettingsDialog extends JDialog {
 		super(frame, model);
 
 		setTitle(language.getString("file.preferences").replaceAll("\\s+\\([^\\)]+\\)$", ""));
-		setSize(500, 40 * 7 + 10 * 8);
+		setSize(500, 40 * 8 + 10 * 9);
 		setLocationRelativeTo(null);
 		setResizable(false);
 		setIconImage(MainFrame.icon.getImage());
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-		panel.setLayout(new GridLayout(7, 1, 10, 10));
+		panel.setLayout(new GridLayout(8, 1, 10, 10));
 		setContentPane(panel);
 
 		watchField = new BooleanField("settings.watch", settings.isWatch(), "settings.watch.help");
@@ -67,30 +68,13 @@ public class SettingsDialog extends JDialog {
 		triesField = new IntegerField("settings.tries", settings.getTries(), "settings.tries.help", 0, 100, 1);
 		logLinesField = new IntegerField("settings.logLines", settings.getLogLines(), "settings.logLines.help", 10000, 1000000, 1000);
 		fontField = new SelectField("settings.font", settings.getFont(), "settings.font.help", GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(Locale.SIMPLIFIED_CHINESE));
-		fontField.getField().setRenderer(new BasicComboBoxRenderer() {
-			private static final long serialVersionUID = 5124430506703490578L;
-
-			@Override
-			public Dimension getPreferredSize() {
-				Dimension size = super.getPreferredSize();
-				size.height = 30;
-				return size;
-			}
-
-			@Override
-			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-				BasicComboBoxRenderer c = (BasicComboBoxRenderer) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-				c.setFont(new Font((String) value, Font.PLAIN, 12));
-				c.setToolTipText((String) value);
-				c.setBorder(new EmptyBorder(0, 10, 0, 10));
-				return c;
-			}
-		});
+		fontSizeField = new IntegerField("settings.fontSize", settings.getFontSize(), "settings.fontSize.help", 8, 32, 1);
 
 		confirm.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String font = settings.getFont();
+				int fontSize = settings.getFontSize();
 
 				settings.setWatch(watchField.getValue());
 				settings.setNthreads(nthreadsField.getValue());
@@ -98,11 +82,12 @@ public class SettingsDialog extends JDialog {
 				settings.setTries(triesField.getValue());
 				settings.setLogLines(logLinesField.getValue());
 				settings.setFont(fontField.getValue());
+				settings.setFontSize(fontSizeField.getValue());
 				settings.save();
 
 				SettingsDialog.this.dispose();
 
-				if (!font.equals(settings.getFont()))
+				if(!font.equals(settings.getFont()) || fontSize != settings.getFontSize())
 					frame.restart();
 			}
 		});
@@ -122,6 +107,7 @@ public class SettingsDialog extends JDialog {
 		panel.add(triesField);
 		panel.add(logLinesField);
 		panel.add(fontField);
+		panel.add(fontSizeField);
 		panel.add(btn);
 
 		for (int i = 0; i < panel.getComponentCount(); i++) {

@@ -33,6 +33,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumn;
+import javax.swing.table.TableCellRenderer;
 
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.log4j.Logger;
@@ -53,6 +54,7 @@ public class FileTable extends JPanel {
 	private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	private final ResourceBundle language = Settings.language();
+	private final int fontSize = Settings.instance().getFontSize();
 
 	private JTable table;
 	private Model model;
@@ -108,48 +110,27 @@ public class FileTable extends JPanel {
 			}
 		});
 
-		TableColumn tableColumn;
-
 		// name column(0)
-		tableColumn = table.getColumnModel().getColumn(0);
-		tableColumn.setCellRenderer(new NameColumn(2));
+		setColumn(0, null, new NameColumn(2));
 
 		// size column(1)
-		tableColumn = table.getColumnModel().getColumn(1);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(60);
-		tableColumn.setCellRenderer(new SizeColumn());
+		setColumn(1, "column.size", new SizeColumn());
 
 		// type column(2)
-		tableColumn = table.getColumnModel().getColumn(2);
-		tableColumn.setMinWidth(40);
-		tableColumn.setMaxWidth(Integer.valueOf(language.getString("type.size")));
-		tableColumn.setCellRenderer(new TypeColumn());
+		setColumn(2, "column.type", new TypeColumn());
 
 		// mtime column(3)
-		tableColumn = table.getColumnModel().getColumn(3);
-		tableColumn.setMinWidth(100);
-		tableColumn.setMaxWidth(145);
-		tableColumn.setCellRenderer(new StringColumn());
+		setColumn(3, "column.mtime", new StringColumn());
 
 		if (!isLocal) {
 			// perms column(4)
-			tableColumn = table.getColumnModel().getColumn(4);
-			tableColumn.setMinWidth(50);
-			tableColumn.setMaxWidth(82);
-			tableColumn.setCellRenderer(new StringColumn());
+			setColumn(4, "column.perms", new StringColumn());
 
 			// uid column(5)
-			tableColumn = table.getColumnModel().getColumn(5);
-			tableColumn.setMinWidth(50);
-			tableColumn.setMaxWidth(50);
-			tableColumn.setCellRenderer(new StringColumn());
+			setColumn(5, "column.uid", new StringColumn());
 
 			// gid column(6)
-			tableColumn = table.getColumnModel().getColumn(6);
-			tableColumn.setMinWidth(50);
-			tableColumn.setMaxWidth(50);
-			tableColumn.setCellRenderer(new StringColumn());
+			setColumn(6, "column.gid", new StringColumn());
 		}
 
 		addr = new JTextField();
@@ -205,6 +186,24 @@ public class FileTable extends JPanel {
 				}
 			}
 		});
+	}
+
+	private void setColumn(int col, String res, TableCellRenderer renderer) {
+		TableColumn column = table.getColumnModel().getColumn(col);
+		if(res != null) {
+			String[] vals = language.getString(res).split(":");
+			int d = Integer.valueOf(vals[0]) * fontSize + 10;
+			if(vals.length > 1) {
+				int d2 = Integer.valueOf(vals[1]) * fontSize + 10;
+				column.setMinWidth(d);
+				column.setMaxWidth(d2);
+			} else {
+				column.setMinWidth(d);
+				column.setMaxWidth(d);
+				column.setPreferredWidth(d);
+			}
+		}
+		column.setCellRenderer(renderer);
 	}
 
 	public JTable getTable() {
