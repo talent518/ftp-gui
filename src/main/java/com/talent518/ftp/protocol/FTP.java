@@ -50,6 +50,7 @@ public class FTP extends IProtocol {
 		}
 	};
 
+	@SuppressWarnings("deprecation")
 	public FTP(Site s) {
 		super(s);
 

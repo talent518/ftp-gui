@@ -1056,7 +1056,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			}
 		}
 
-		@SuppressWarnings("removal")
+		@SuppressWarnings("deprecation")
 		public void unwatch() {
 			synchronized (watchSet) {
 				watchSet.clear();
@@ -1726,7 +1726,7 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 				}
 			};
 
-			@SuppressWarnings({ "removal" })
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
 				if (isRunning()) {
@@ -2054,7 +2054,6 @@ public class MainFrame extends JFrame implements ComponentListener, WindowListen
 			return key;
 		}
 
-		@SuppressWarnings("deprecation")
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			log.debug("Performed: resKey = " + resKey + ", resVal = " + resVal + ", mnemonic = " + (char) getMnemonic());

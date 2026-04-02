@@ -131,7 +131,6 @@ public class Settings {
 	private String font = null;
 	private int fontSize = 12;
 
-	@SuppressWarnings("deprecation")
 	public Locale getLocale() {
 		if (locale == null) {
 			synchronized (Settings.class) {
